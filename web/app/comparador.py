@@ -160,7 +160,10 @@ def _df_to_list(df: pd.DataFrame, campos: list) -> list:
 
 
 def extrair_data(arquivo: Path) -> str:
-    m = re.search(r"(\d{2})[-._](\d{2})(?:[-._](\d{2,4}))?", arquivo.stem)
+    # Usa apenas "." ou "-" como separadores (não "_") para evitar capturar
+    # o timestamp prefixado no nome do arquivo (ex: 20260527_123626_efetivo-26.05.xlsx
+    # teria "27_12" como falso-positivo se "_" fosse separador aceito).
+    m = re.search(r"(\d{2})[.\-](\d{2})(?:[.\-](\d{2,4}))?", arquivo.stem)
     if not m:
         return datetime.now().strftime("%d-%m-%Y")
     dd, mm, yy = m.group(1), m.group(2), m.group(3)

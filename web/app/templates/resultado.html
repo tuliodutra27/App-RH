@@ -4,11 +4,17 @@
 {% block content %}
 
 <!-- Cabeçalho -->
-<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary mb-2">
-      <i class="bi bi-arrow-left me-1"></i>Voltar ao dashboard
-    </a>
+    <!-- Navegação rápida -->
+    <div class="d-flex gap-2 mb-2 flex-wrap">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Dashboard
+      </a>
+      <a href="{{ url_for('colaboradores', id=dados.id) }}" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-people me-1"></i>Efetivo completo
+      </a>
+    </div>
     <h2 class="fw-bold mb-1">
       <i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>
       Relatório — {{ dados.data }}
@@ -33,37 +39,61 @@
 </div>
 {% endif %}
 
-<!-- Cards de resumo -->
+<!-- Cards de resumo — os 3 coloridos trocam a aba ao clicar -->
 <div class="row g-3 mb-4">
+
+  <!-- Colaboradores → vai para efetivo completo -->
   <div class="col-6 col-md-3">
-    <div class="stat-card bg-white border">
-      <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
-      <div class="stat-number text-dark">{{ dados.total }}</div>
-      <div class="stat-label">Colaboradores</div>
-      <div class="stat-sub">{{ dados.total_clt }} CLT · {{ dados.total_pj }} PJ</div>
-    </div>
+    <a href="{{ url_for('colaboradores', id=dados.id) }}" class="stat-card-link">
+      <div class="stat-card bg-body border">
+        <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
+        <div class="stat-number text-body">{{ dados.total }}</div>
+        <div class="stat-label">Colaboradores</div>
+        <div class="stat-sub">{{ dados.total_clt }} CLT · {{ dados.total_pj }} PJ</div>
+        <div class="stat-hint"><i class="bi bi-chevron-right"></i> Ver lista</div>
+      </div>
+    </a>
   </div>
+
+  <!-- Admissões → abre aba #admissoes -->
   <div class="col-6 col-md-3">
-    <div class="stat-card bg-success-subtle border-success-subtle">
-      <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
-      <div class="stat-number text-success">{{ dados.n_adicoes }}</div>
-      <div class="stat-label">Admissões</div>
-    </div>
+    <button type="button" class="stat-card-link w-100 border-0 bg-transparent p-0"
+            onclick="trocarAba('#admissoes')">
+      <div class="stat-card bg-success-subtle border-success-subtle" id="cardAdmissoes">
+        <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
+        <div class="stat-number text-success">{{ dados.n_adicoes }}</div>
+        <div class="stat-label">Admissões</div>
+        <div class="stat-hint text-success-emphasis"><i class="bi bi-chevron-down"></i> Ver lista</div>
+      </div>
+    </button>
   </div>
+
+  <!-- Desligamentos → abre aba #desligamentos -->
   <div class="col-6 col-md-3">
-    <div class="stat-card bg-danger-subtle border-danger-subtle">
-      <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
-      <div class="stat-number text-danger">{{ dados.n_remocoes }}</div>
-      <div class="stat-label">Desligamentos</div>
-    </div>
+    <button type="button" class="stat-card-link w-100 border-0 bg-transparent p-0"
+            onclick="trocarAba('#desligamentos')">
+      <div class="stat-card bg-danger-subtle border-danger-subtle" id="cardDesligamentos">
+        <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
+        <div class="stat-number text-danger">{{ dados.n_remocoes }}</div>
+        <div class="stat-label">Desligamentos</div>
+        <div class="stat-hint text-danger-emphasis"><i class="bi bi-chevron-down"></i> Ver lista</div>
+      </div>
+    </button>
   </div>
+
+  <!-- Alterações → abre aba #alteracoes -->
   <div class="col-6 col-md-3">
-    <div class="stat-card bg-warning-subtle border-warning-subtle">
-      <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
-      <div class="stat-number text-warning">{{ dados.n_alteracoes }}</div>
-      <div class="stat-label">Alterações</div>
-    </div>
+    <button type="button" class="stat-card-link w-100 border-0 bg-transparent p-0"
+            onclick="trocarAba('#alteracoes')">
+      <div class="stat-card bg-warning-subtle border-warning-subtle" id="cardAlteracoes">
+        <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
+        <div class="stat-number text-warning">{{ dados.n_alteracoes }}</div>
+        <div class="stat-label">Alterações</div>
+        <div class="stat-hint text-warning-emphasis"><i class="bi bi-chevron-down"></i> Ver lista</div>
+      </div>
+    </button>
   </div>
+
 </div>
 
 <!-- Abas -->
@@ -282,26 +312,48 @@
 
 {% block scripts %}
 <script>
+// ── Filtra linhas de uma tabela por texto livre ─────────────────────────────
 function filtrarTabela(input, tblId) {
   const filtro = input.value.toLowerCase();
-  const rows   = document.getElementById(tblId).querySelectorAll('tbody tr');
-  rows.forEach(row => {
+  document.getElementById(tblId).querySelectorAll('tbody tr').forEach(row => {
     row.style.display = row.textContent.toLowerCase().includes(filtro) ? '' : 'none';
   });
 }
 
-// Abre a aba correta se a URL tiver um #hash
-// Ex: /resultado/123#admissoes → abre aba "Admissões"
+// ── Troca para uma aba e rola até ela ──────────────────────────────────────
+function trocarAba(hash) {
+  const tabLink = document.querySelector(`[data-bs-toggle="tab"][href="${hash}"]`);
+  if (!tabLink) return;
+  bootstrap.Tab.getOrCreateInstance(tabLink).show();
+  // Atualiza o hash da URL sem recarregar a página
+  history.replaceState(null, '', hash);
+  // Rola suavemente até as abas
+  setTimeout(() => {
+    document.getElementById('resultTabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 80);
+  // Destaca brevemente o card ativo
+  destacarCard(hash);
+}
+
+// ── Destaca o card correspondente à aba ativa ──────────────────────────────
+function destacarCard(hash) {
+  const mapa = {
+    '#admissoes':    'cardAdmissoes',
+    '#desligamentos':'cardDesligamentos',
+    '#alteracoes':   'cardAlteracoes',
+  };
+  const id = mapa[hash];
+  if (!id) return;
+  const card = document.getElementById(id);
+  card.style.transform = 'scale(1.04)';
+  card.style.transition = 'transform .15s';
+  setTimeout(() => { card.style.transform = ''; }, 350);
+}
+
+// ── Abre aba pelo hash da URL ao carregar (ex: clique vindo do dashboard) ──
 document.addEventListener('DOMContentLoaded', function () {
-  const hash = window.location.hash; // ex: "#admissoes"
-  if (hash) {
-    const tabLink = document.querySelector(`[data-bs-toggle="tab"][href="${hash}"]`);
-    if (tabLink) {
-      bootstrap.Tab.getOrCreateInstance(tabLink).show();
-      // Rola suavemente até as abas
-      setTimeout(() => tabLink.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-    }
-  }
+  const hash = window.location.hash;
+  if (hash) trocarAba(hash);
 });
 </script>
 {% endblock %}

@@ -17,53 +17,78 @@
 {% if historico %}
   {% set ultimo = historico[0] %}
 
-  <!-- Cards do último resultado -->
+  <!-- Cards clicáveis do último resultado -->
   {% if not ultimo.is_baseline %}
   <div class="row g-3 mb-4">
+
+    <!-- Colaboradores → lista completa -->
     <div class="col-6 col-md-3">
-      <div class="stat-card bg-white border">
-        <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
-        <div class="stat-number text-dark">{{ ultimo.total }}</div>
-        <div class="stat-label">Colaboradores</div>
-        <div class="stat-sub">{{ ultimo.total_clt }} CLT · {{ ultimo.total_pj }} PJ</div>
-      </div>
+      <a href="{{ url_for('colaboradores', id=ultimo.id) }}" class="stat-card-link">
+        <div class="stat-card bg-body border">
+          <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
+          <div class="stat-number text-body">{{ ultimo.total }}</div>
+          <div class="stat-label">Colaboradores</div>
+          <div class="stat-sub">{{ ultimo.total_clt }} CLT · {{ ultimo.total_pj }} PJ</div>
+          <div class="stat-hint"><i class="bi bi-chevron-right"></i> Ver lista</div>
+        </div>
+      </a>
     </div>
+
+    <!-- Admissões -->
     <div class="col-6 col-md-3">
-      <div class="stat-card bg-success-subtle border-success-subtle">
-        <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
-        <div class="stat-number text-success">{{ ultimo.n_adicoes }}</div>
-        <div class="stat-label">Admissões</div>
-      </div>
+      <a href="{{ url_for('resultado', id=ultimo.id) }}#admissoes" class="stat-card-link">
+        <div class="stat-card bg-success-subtle border-success-subtle">
+          <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
+          <div class="stat-number text-success">{{ ultimo.n_adicoes }}</div>
+          <div class="stat-label">Admissões</div>
+          {% if ultimo.n_adicoes > 0 %}
+          <div class="stat-hint text-success-emphasis"><i class="bi bi-chevron-right"></i> Ver lista</div>
+          {% endif %}
+        </div>
+      </a>
     </div>
+
+    <!-- Desligamentos -->
     <div class="col-6 col-md-3">
-      <div class="stat-card bg-danger-subtle border-danger-subtle">
-        <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
-        <div class="stat-number text-danger">{{ ultimo.n_remocoes }}</div>
-        <div class="stat-label">Desligamentos</div>
-      </div>
+      <a href="{{ url_for('resultado', id=ultimo.id) }}#desligamentos" class="stat-card-link">
+        <div class="stat-card bg-danger-subtle border-danger-subtle">
+          <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
+          <div class="stat-number text-danger">{{ ultimo.n_remocoes }}</div>
+          <div class="stat-label">Desligamentos</div>
+          {% if ultimo.n_remocoes > 0 %}
+          <div class="stat-hint text-danger-emphasis"><i class="bi bi-chevron-right"></i> Ver lista</div>
+          {% endif %}
+        </div>
+      </a>
     </div>
+
+    <!-- Alterações -->
     <div class="col-6 col-md-3">
-      <div class="stat-card bg-warning-subtle border-warning-subtle">
-        <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
-        <div class="stat-number text-warning">{{ ultimo.n_alteracoes }}</div>
-        <div class="stat-label">Alterações</div>
-      </div>
+      <a href="{{ url_for('resultado', id=ultimo.id) }}#alteracoes" class="stat-card-link">
+        <div class="stat-card bg-warning-subtle border-warning-subtle">
+          <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
+          <div class="stat-number text-warning">{{ ultimo.n_alteracoes }}</div>
+          <div class="stat-label">Alterações</div>
+          {% if ultimo.n_alteracoes > 0 %}
+          <div class="stat-hint text-warning-emphasis"><i class="bi bi-chevron-right"></i> Ver lista</div>
+          {% endif %}
+        </div>
+      </a>
     </div>
+
   </div>
   <p class="text-muted small mb-4">
     <i class="bi bi-clock me-1"></i>
     Última planilha: <strong>{{ ultimo.arquivo }}</strong> processada em
     {{ ultimo.timestamp[:10] }} por {{ ultimo.usuario or '—' }}
-    {% if not ultimo.is_baseline %}
-    · <a href="{{ url_for('resultado', id=ultimo.id) }}">Ver detalhes</a>
-    {% endif %}
+    · <a href="{{ url_for('resultado', id=ultimo.id) }}">Ver detalhes completos</a>
   </p>
   {% endif %}
 {% endif %}
 
 <!-- Tabela de histórico -->
 <div class="card shadow-sm border-0">
-  <div class="card-header bg-white border-bottom py-3">
+  <div class="card-header bg-body border-bottom py-3">
     <h5 class="mb-0 fw-semibold">
       <i class="bi bi-clock-history text-secondary me-2"></i>Histórico de Comparações
     </h5>
@@ -94,15 +119,19 @@
             {% if item.is_baseline %}
               <span class="badge bg-secondary">Baseline</span>
             {% else %}
-              <span>{{ item.total }}</span>
-              <span class="text-muted small d-block">{{ item.total_clt }}C · {{ item.total_pj }}PJ</span>
+              <a href="{{ url_for('colaboradores', id=item.id) }}" class="link-body-emphasis text-decoration-none">
+                <span>{{ item.total }}</span>
+                <span class="text-muted small d-block">{{ item.total_clt }}C · {{ item.total_pj }}PJ</span>
+              </a>
             {% endif %}
           </td>
 
           <td class="text-center">
             {% if not item.is_baseline %}
               {% if item.n_adicoes > 0 %}
-                <span class="badge bg-success fs-6">{{ item.n_adicoes }}</span>
+                <a href="{{ url_for('resultado', id=item.id) }}#admissoes" class="text-decoration-none">
+                  <span class="badge bg-success fs-6">{{ item.n_adicoes }}</span>
+                </a>
               {% else %}
                 <span class="text-muted">—</span>
               {% endif %}
@@ -112,7 +141,9 @@
           <td class="text-center">
             {% if not item.is_baseline %}
               {% if item.n_remocoes > 0 %}
-                <span class="badge bg-danger fs-6">{{ item.n_remocoes }}</span>
+                <a href="{{ url_for('resultado', id=item.id) }}#desligamentos" class="text-decoration-none">
+                  <span class="badge bg-danger fs-6">{{ item.n_remocoes }}</span>
+                </a>
               {% else %}
                 <span class="text-muted">—</span>
               {% endif %}
@@ -122,7 +153,9 @@
           <td class="text-center">
             {% if not item.is_baseline %}
               {% if item.n_alteracoes > 0 %}
-                <span class="badge bg-warning text-dark fs-6">{{ item.n_alteracoes }}</span>
+                <a href="{{ url_for('resultado', id=item.id) }}#alteracoes" class="text-decoration-none">
+                  <span class="badge bg-warning text-dark fs-6">{{ item.n_alteracoes }}</span>
+                </a>
               {% else %}
                 <span class="text-muted">—</span>
               {% endif %}
@@ -189,7 +222,7 @@
           </div>
 
           <!-- Nome do arquivo selecionado -->
-          <div id="fileInfo" class="d-none mt-3 p-3 bg-light rounded">
+          <div id="fileInfo" class="d-none mt-3 p-3 bg-body-secondary rounded">
             <i class="bi bi-file-earmark-excel text-success me-2"></i>
             <span id="fileName" class="fw-semibold"></span>
             <span id="fileSize" class="text-muted small ms-2"></span>
@@ -255,7 +288,6 @@ formUpload.addEventListener('submit', () => {
   btnEnviar.disabled = true;
   document.getElementById('spinner').classList.remove('d-none');
   document.getElementById('iconUpload').classList.add('d-none');
-  btnEnviar.querySelector('.bi-upload') && (btnEnviar.querySelector('.bi-upload').classList.add('d-none'));
 });
 </script>
 {% endblock %}

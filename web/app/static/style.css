@@ -10,18 +10,17 @@ body {
   border-bottom: 3px solid #0d6efd;
 }
 
-/* ── Ícone de login ──────────────────────────────────────────────────────── */
-.login-icon {
-  width: 72px;
-  height: 72px;
-  background: #0d6efd;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  font-size: 2rem;
-  color: #fff;
+/* Logo na navbar — garante visibilidade no fundo escuro */
+.navbar-logo {
+  filter: brightness(0) invert(1);
+  object-fit: contain;
+}
+
+/* ── Logo na tela de login ────────────────────────────────────────────────── */
+.login-logo {
+  height: 80px;
+  object-fit: contain;
+  max-width: 200px;
 }
 
 /* ── Cards de estatísticas ───────────────────────────────────────────────── */
@@ -30,7 +29,8 @@ body {
   padding: 1.25rem 1rem;
   text-align: center;
   border: 1px solid #e9ecef;
-  transition: transform .15s, box-shadow .15s;
+  transition: transform .18s, box-shadow .18s;
+  height: 100%;
 }
 
 .stat-card:hover {
@@ -62,6 +62,31 @@ body {
   font-size: .75rem;
   color: #9ca3af;
   margin-top: .15rem;
+}
+
+.stat-hint {
+  font-size: .72rem;
+  color: #9ca3af;
+  margin-top: .4rem;
+  opacity: 0;
+  transition: opacity .18s;
+}
+
+/* ── Cards clicáveis ─────────────────────────────────────────────────────── */
+.stat-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.stat-card-link:hover .stat-card {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  cursor: pointer;
+}
+
+.stat-card-link:hover .stat-hint {
+  opacity: 1;
 }
 
 /* ── Zona de upload ──────────────────────────────────────────────────────── */
@@ -137,4 +162,80 @@ body {
 @media (max-width: 576px) {
   .stat-number { font-size: 1.8rem; }
   .stat-icon   { font-size: 1.4rem; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — Bootstrap 5.3 com data-bs-theme="dark"
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-bs-theme="dark"] body {
+  background: #111318;
+  color: #dee2e6;
+}
+
+[data-bs-theme="dark"] .navbar {
+  border-bottom-color: #0d6efd;
+}
+
+/* Stat cards no dark mode */
+[data-bs-theme="dark"] .stat-card {
+  border-color: rgba(255,255,255,.1);
+}
+
+[data-bs-theme="dark"] .stat-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+
+[data-bs-theme="dark"] .stat-label {
+  color: #9ca3af;
+}
+
+[data-bs-theme="dark"] .stat-sub,
+[data-bs-theme="dark"] .stat-hint {
+  color: #6c757d;
+}
+
+/* Diff cells no dark mode */
+[data-bs-theme="dark"] .diff-antes {
+  background: #3d1a1a !important;
+}
+
+[data-bs-theme="dark"] .diff-depois {
+  background: #1a3d2a !important;
+}
+
+/* Upload zone no dark mode */
+[data-bs-theme="dark"] .upload-zone {
+  border-color: #444;
+  background: transparent;
+}
+
+[data-bs-theme="dark"] .upload-zone:hover,
+[data-bs-theme="dark"] .upload-zone.dragging {
+  border-color: #0d6efd;
+  background: #1a1f3a;
+}
+
+[data-bs-theme="dark"] .upload-zone.has-file {
+  border-color: #198754;
+  background: #152a1e;
+}
+
+[data-bs-theme="dark"] .upload-icon {
+  color: #6c757d;
+}
+
+/* Nav tabs no dark mode */
+[data-bs-theme="dark"] .nav-tabs .nav-link {
+  color: #adb5bd;
+}
+
+[data-bs-theme="dark"] .nav-tabs .nav-link.active {
+  color: #dee2e6;
+}
+
+/* Logo login no dark mode — mantém legível */
+[data-bs-theme="dark"] .login-logo {
+  filter: brightness(1.1);
 }

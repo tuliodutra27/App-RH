@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Efetivo {{ meta.data or '' }} — Analisador RH{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+  <div>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Voltar ao dashboard
+    </a>
+    <h2 class="fw-bold mb-1">
+      <i class="bi bi-people-fill text-primary me-2"></i>
+      Efetivo atual — {{ meta.data or 'N/D' }}
+    </h2>
+    <p class="text-muted small mb-0">
+      <i class="bi bi-file-earmark-excel me-1"></i>
+      {{ meta.arquivo or 'snapshot' }}
+      &nbsp;·&nbsp;
+      <i class="bi bi-person me-1"></i>{{ meta.usuario or '—' }}
+    </p>
+  </div>
+</div>
+
+<!-- Cards de resumo -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4">
+    <div class="stat-card bg-body border">
+      <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
+      <div class="stat-number text-body">{{ total }}</div>
+      <div class="stat-label">Total</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="stat-card bg-primary-subtle border-primary-subtle">
+      <div class="stat-icon text-primary"><i class="bi bi-person-badge"></i></div>
+      <div class="stat-number text-primary">{{ total_clt }}</div>
+      <div class="stat-label">CLT</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="stat-card bg-info-subtle border-info-subtle">
+      <div class="stat-icon text-info"><i class="bi bi-briefcase"></i></div>
+      <div class="stat-number text-info">{{ total_pj }}</div>
+      <div class="stat-label">PJ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabela de colaboradores -->
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-body border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h5 class="mb-0 fw-semibold">
+      <i class="bi bi-table text-secondary me-2"></i>Lista de Colaboradores
+    </h5>
+    <input type="search" id="buscaColab" class="form-control form-control-sm w-auto"
+           placeholder="Buscar por nome, cargo, depto..."
+           oninput="filtrarColaboradores(this.value)">
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle mb-0" id="tblColaboradores">
+      <thead class="table-dark">
+        <tr>
+          <th style="width:60px">Tipo</th>
+          <th style="width:90px">Matrícula</th>
+          <th>Nome</th>
+          <th>Cargo</th>
+          <th>Departamento</th>
+          <th>Gestor</th>
+          <th style="width:100px">Admissão</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in colaboradores %}
+        <tr>
+          <td>
+            <span class="badge {{ 'bg-primary' if c.tipo == 'CLT' else 'bg-info text-dark' }}">
+              {{ c.tipo }}
+            </span>
+          </td>
+          <td class="font-monospace text-muted small">{{ c.matricula }}</td>
+          <td class="fw-semibold">{{ c.nome }}</td>
+          <td class="small">{{ c.cargo }}</td>
+          <td class="small">{{ c.departamento }}</td>
+          <td class="small text-muted">{{ c.gestor }}</td>
+          <td class="small text-muted">{{ c.admissao }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer bg-body text-muted small py-2 px-3" id="contadorLinhas">
+    Exibindo <strong id="totalVisivel">{{ total }}</strong> de <strong>{{ total }}</strong> colaboradores
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const totalGeral = {{ total }};
+
+function filtrarColaboradores(termo) {
+  const t   = termo.toLowerCase();
+  const rows = document.querySelectorAll('#tblColaboradores tbody tr');
+  let visiveis = 0;
+  rows.forEach(row => {
+    const match = row.textContent.toLowerCase().includes(t);
+    row.style.display = match ? '' : 'none';
+    if (match) visiveis++;
+  });
+  document.getElementById('totalVisivel').textContent = visiveis;
+}
+</script>
+{% endblock %}

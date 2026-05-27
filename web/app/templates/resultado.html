@@ -289,5 +289,19 @@ function filtrarTabela(input, tblId) {
     row.style.display = row.textContent.toLowerCase().includes(filtro) ? '' : 'none';
   });
 }
+
+// Abre a aba correta se a URL tiver um #hash
+// Ex: /resultado/123#admissoes → abre aba "Admissões"
+document.addEventListener('DOMContentLoaded', function () {
+  const hash = window.location.hash; // ex: "#admissoes"
+  if (hash) {
+    const tabLink = document.querySelector(`[data-bs-toggle="tab"][href="${hash}"]`);
+    if (tabLink) {
+      bootstrap.Tab.getOrCreateInstance(tabLink).show();
+      // Rola suavemente até as abas
+      setTimeout(() => tabLink.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    }
+  }
+});
 </script>
 {% endblock %}

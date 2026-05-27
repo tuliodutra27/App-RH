@@ -23,7 +23,7 @@ from werkzeug.utils import secure_filename
 from io import BytesIO
 
 from auth import autenticar_ad
-from comparador import processar_planilha, gerar_excel
+from comparador import processar_planilha, gerar_excel, carregar_planilha
 
 # ── App ────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -223,6 +223,51 @@ def download(id):
         as_attachment=True,
         download_name=nome_arquivo,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@app.route("/colaboradores/<id>")
+@login_required
+def colaboradores(id):
+    """Exibe todos os colaboradores do snapshot de uma comparação."""
+    snapshots = list(SNAPSHOTS_DIR.glob(f"snapshot_{id}_*.xlsx"))
+    if not snapshots:
+        flash("Snapshot não encontrado para esta comparação.", "warning")
+        return redirect(url_for("dashboard"))
+
+    snapshot = snapshots[0]
+    df = carregar_planilha(snapshot)
+
+    # Metadados do histórico para exibir data/arquivo/usuário
+    historico = carregar_historico()
+    meta = next((h for h in historico if h["id"] == id), {})
+
+    # Monta lista ordenada por nome
+    colaboradores_list = []
+    for chave, row in df.iterrows():
+        tipo = "PJ" if chave.startswith("PJ::") else "CLT"
+        colaboradores_list.append({
+            "tipo":         tipo,
+            "matricula":    str(row.get("MATRÍCULA", "")),
+            "nome":         str(row.get("NOME", "")),
+            "cargo":        str(row.get("CARGO", "")),
+            "departamento": str(row.get("DEPARTAMENTO", "")),
+            "gestor":       str(row.get("GESTOR", "")),
+            "admissao":     str(row.get("ADMISSÃO", "")),
+        })
+
+    colaboradores_list.sort(key=lambda x: x["nome"])
+
+    total_clt = sum(1 for c in colaboradores_list if c["tipo"] == "CLT")
+    total_pj  = sum(1 for c in colaboradores_list if c["tipo"] == "PJ")
+
+    return render_template(
+        "colaboradores.html",
+        colaboradores=colaboradores_list,
+        meta=meta,
+        total=len(colaboradores_list),
+        total_clt=total_clt,
+        total_pj=total_pj,
     )
 
 

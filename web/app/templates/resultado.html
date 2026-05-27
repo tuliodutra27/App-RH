@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Resultado {{ dados.data }} — Analisador RH{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+  <div>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary mb-2">
+      <i class="bi bi-arrow-left me-1"></i>Voltar ao dashboard
+    </a>
+    <h2 class="fw-bold mb-1">
+      <i class="bi bi-file-earmark-bar-graph text-primary me-2"></i>
+      Relatório — {{ dados.data }}
+    </h2>
+    <p class="text-muted small mb-0">
+      <i class="bi bi-file-earmark-excel me-1"></i><code>{{ dados.arquivo }}</code>
+      &nbsp;·&nbsp;
+      <i class="bi bi-clock me-1"></i>{{ dados.timestamp[:16].replace('T',' ') }}
+      &nbsp;·&nbsp;
+      <i class="bi bi-person me-1"></i>{{ dados.usuario or '—' }}
+    </p>
+  </div>
+  <a href="{{ url_for('download', id=dados.id) }}" class="btn btn-outline-success">
+    <i class="bi bi-file-earmark-excel me-2"></i>Baixar Excel
+  </a>
+</div>
+
+{% if dados.get('alerta_chave') %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>
+  <strong>Atenção:</strong> {{ dados.alerta_chave }}
+</div>
+{% endif %}
+
+<!-- Cards de resumo -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-white border">
+      <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
+      <div class="stat-number text-dark">{{ dados.total }}</div>
+      <div class="stat-label">Colaboradores</div>
+      <div class="stat-sub">{{ dados.total_clt }} CLT · {{ dados.total_pj }} PJ</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-success-subtle border-success-subtle">
+      <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
+      <div class="stat-number text-success">{{ dados.n_adicoes }}</div>
+      <div class="stat-label">Admissões</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-danger-subtle border-danger-subtle">
+      <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
+      <div class="stat-number text-danger">{{ dados.n_remocoes }}</div>
+      <div class="stat-label">Desligamentos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card bg-warning-subtle border-warning-subtle">
+      <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
+      <div class="stat-number text-warning">{{ dados.n_alteracoes }}</div>
+      <div class="stat-label">Alterações</div>
+    </div>
+  </div>
+</div>
+
+<!-- Abas -->
+<ul class="nav nav-tabs border-bottom mb-0" id="resultTabs">
+  <li class="nav-item">
+    <a class="nav-link active fw-semibold" data-bs-toggle="tab" href="#admissoes">
+      <i class="bi bi-person-plus-fill text-success me-1"></i>
+      Admissões
+      <span class="badge bg-success ms-1">{{ dados.n_adicoes }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link fw-semibold" data-bs-toggle="tab" href="#desligamentos">
+      <i class="bi bi-person-dash-fill text-danger me-1"></i>
+      Desligamentos
+      <span class="badge bg-danger ms-1">{{ dados.n_remocoes }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link fw-semibold" data-bs-toggle="tab" href="#alteracoes">
+      <i class="bi bi-pencil-fill text-warning me-1"></i>
+      Alterações
+      <span class="badge bg-warning text-dark ms-1">{{ dados.n_alteracoes }}</span>
+    </a>
+  </li>
+</ul>
+
+<div class="tab-content card shadow-sm border-0 border-top-0 rounded-bottom p-3">
+
+  {# ─── ADMISSÕES ─────────────────────────────────────────────────────────── #}
+  <div class="tab-pane fade show active" id="admissoes">
+    {% if dados.adicoes %}
+    <!-- Campo de busca -->
+    <div class="mb-3">
+      <input type="search" class="form-control form-control-sm w-auto"
+             placeholder="Filtrar por nome, cargo..."
+             oninput="filtrarTabela(this, 'tblAdmissoes')">
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle" id="tblAdmissoes">
+        <thead class="table-success">
+          <tr>
+            <th>Tipo</th>
+            <th>Matrícula</th>
+            <th>Nome</th>
+            <th>Cargo</th>
+            <th>Departamento</th>
+            <th>Gestor</th>
+            <th>Admissão</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in dados.adicoes %}
+          <tr>
+            <td><span class="badge bg-secondary">{{ p.tipo }}</span></td>
+            <td class="font-monospace">{{ p.matricula }}</td>
+            <td class="fw-semibold">{{ p.nome }}</td>
+            <td>{{ p.cargo }}</td>
+            <td>{{ p.departamento }}</td>
+            <td>{{ p.gestor }}</td>
+            <td>{{ p.admissao }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+      <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+      Nenhuma admissão neste período.
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─── DESLIGAMENTOS ─────────────────────────────────────────────────────── #}
+  <div class="tab-pane fade" id="desligamentos">
+    {% if dados.remocoes %}
+    <div class="mb-3">
+      <input type="search" class="form-control form-control-sm w-auto"
+             placeholder="Filtrar por nome, cargo..."
+             oninput="filtrarTabela(this, 'tblDesligamentos')">
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle" id="tblDesligamentos">
+        <thead class="table-danger">
+          <tr>
+            <th>Tipo</th>
+            <th>Matrícula</th>
+            <th>Nome</th>
+            <th>Cargo</th>
+            <th>Departamento</th>
+            <th>Gestor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in dados.remocoes %}
+          <tr>
+            <td><span class="badge bg-secondary">{{ p.tipo }}</span></td>
+            <td class="font-monospace">{{ p.matricula }}</td>
+            <td class="fw-semibold">{{ p.nome }}</td>
+            <td>{{ p.cargo }}</td>
+            <td>{{ p.departamento }}</td>
+            <td>{{ p.gestor }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+      <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+      Nenhum desligamento neste período.
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─── ALTERAÇÕES ────────────────────────────────────────────────────────── #}
+  <div class="tab-pane fade" id="alteracoes">
+    {% if dados.alteracoes %}
+    <div class="mb-3">
+      <input type="search" class="form-control form-control-sm w-auto"
+             placeholder="Filtrar por nome, cargo..."
+             oninput="filtrarTabela(this, 'tblAlteracoes')">
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle" id="tblAlteracoes">
+        <thead class="table-warning">
+          <tr>
+            <th>Tipo</th>
+            <th>Matrícula</th>
+            <th>Nome</th>
+            <th colspan="2" class="text-center">Cargo</th>
+            <th colspan="2" class="text-center">Departamento</th>
+            <th colspan="2" class="text-center">Gestor</th>
+          </tr>
+          <tr class="table-warning">
+            <th></th><th></th><th></th>
+            <th class="text-muted fw-normal small">Antes</th>
+            <th class="text-muted fw-normal small">Depois</th>
+            <th class="text-muted fw-normal small">Antes</th>
+            <th class="text-muted fw-normal small">Depois</th>
+            <th class="text-muted fw-normal small">Antes</th>
+            <th class="text-muted fw-normal small">Depois</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in dados.alteracoes %}
+          <tr>
+            <td><span class="badge bg-secondary">{{ p.tipo }}</span></td>
+            <td class="font-monospace">{{ p.matricula }}</td>
+            <td class="fw-semibold">{{ p.nome }}</td>
+
+            {# Cargo #}
+            <td class="{{ 'diff-antes' if p.cargo_mudou else '' }}">
+              {% if p.cargo_mudou %}
+                <span class="text-danger"><del>{{ p.cargo_antes }}</del></span>
+              {% else %}
+                {{ p.cargo_antes }}
+              {% endif %}
+            </td>
+            <td class="{{ 'diff-depois' if p.cargo_mudou else '' }}">
+              {% if p.cargo_mudou %}
+                <span class="fw-bold text-success">{{ p.cargo_depois }}</span>
+              {% else %}
+                {{ p.cargo_depois }}
+              {% endif %}
+            </td>
+
+            {# Departamento #}
+            <td class="{{ 'diff-antes' if p.departamento_mudou else '' }}">
+              {% if p.departamento_mudou %}
+                <span class="text-danger"><del>{{ p.departamento_antes }}</del></span>
+              {% else %}
+                {{ p.departamento_antes }}
+              {% endif %}
+            </td>
+            <td class="{{ 'diff-depois' if p.departamento_mudou else '' }}">
+              {% if p.departamento_mudou %}
+                <span class="fw-bold text-success">{{ p.departamento_depois }}</span>
+              {% else %}
+                {{ p.departamento_depois }}
+              {% endif %}
+            </td>
+
+            {# Gestor #}
+            <td class="{{ 'diff-antes' if p.gestor_mudou else '' }}">
+              {% if p.gestor_mudou %}
+                <span class="text-danger"><del>{{ p.gestor_antes }}</del></span>
+              {% else %}
+                {{ p.gestor_antes }}
+              {% endif %}
+            </td>
+            <td class="{{ 'diff-depois' if p.gestor_mudou else '' }}">
+              {% if p.gestor_mudou %}
+                <span class="fw-bold text-success">{{ p.gestor_depois }}</span>
+              {% else %}
+                {{ p.gestor_depois }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4">
+      <i class="bi bi-check-circle text-success fs-2 d-block mb-2"></i>
+      Nenhuma alteração neste período.
+    </div>
+    {% endif %}
+  </div>
+
+</div><!-- /tab-content -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrarTabela(input, tblId) {
+  const filtro = input.value.toLowerCase();
+  const rows   = document.getElementById(tblId).querySelectorAll('tbody tr');
+  rows.forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(filtro) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

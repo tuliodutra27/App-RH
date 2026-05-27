@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Analisador RH{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-0"><i class="bi bi-bar-chart-fill text-primary me-2"></i>Dashboard</h2>
+    <p class="text-muted small mb-0">Comparador de planilhas do RH</p>
+  </div>
+  <button class="btn btn-success btn-lg shadow-sm" data-bs-toggle="modal" data-bs-target="#modalUpload">
+    <i class="bi bi-upload me-2"></i>Enviar nova planilha
+  </button>
+</div>
+
+{% if historico %}
+  {% set ultimo = historico[0] %}
+
+  <!-- Cards do último resultado -->
+  {% if not ultimo.is_baseline %}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-white border">
+        <div class="stat-icon text-secondary"><i class="bi bi-people"></i></div>
+        <div class="stat-number text-dark">{{ ultimo.total }}</div>
+        <div class="stat-label">Colaboradores</div>
+        <div class="stat-sub">{{ ultimo.total_clt }} CLT · {{ ultimo.total_pj }} PJ</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-success-subtle border-success-subtle">
+        <div class="stat-icon text-success"><i class="bi bi-person-plus-fill"></i></div>
+        <div class="stat-number text-success">{{ ultimo.n_adicoes }}</div>
+        <div class="stat-label">Admissões</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-danger-subtle border-danger-subtle">
+        <div class="stat-icon text-danger"><i class="bi bi-person-dash-fill"></i></div>
+        <div class="stat-number text-danger">{{ ultimo.n_remocoes }}</div>
+        <div class="stat-label">Desligamentos</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-card bg-warning-subtle border-warning-subtle">
+        <div class="stat-icon text-warning"><i class="bi bi-pencil-fill"></i></div>
+        <div class="stat-number text-warning">{{ ultimo.n_alteracoes }}</div>
+        <div class="stat-label">Alterações</div>
+      </div>
+    </div>
+  </div>
+  <p class="text-muted small mb-4">
+    <i class="bi bi-clock me-1"></i>
+    Última planilha: <strong>{{ ultimo.arquivo }}</strong> processada em
+    {{ ultimo.timestamp[:10] }} por {{ ultimo.usuario or '—' }}
+    {% if not ultimo.is_baseline %}
+    · <a href="{{ url_for('resultado', id=ultimo.id) }}">Ver detalhes</a>
+    {% endif %}
+  </p>
+  {% endif %}
+{% endif %}
+
+<!-- Tabela de histórico -->
+<div class="card shadow-sm border-0">
+  <div class="card-header bg-white border-bottom py-3">
+    <h5 class="mb-0 fw-semibold">
+      <i class="bi bi-clock-history text-secondary me-2"></i>Histórico de Comparações
+    </h5>
+  </div>
+
+  {% if historico %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>Data</th>
+          <th>Arquivo</th>
+          <th class="text-center">Total</th>
+          <th class="text-center">Admissões</th>
+          <th class="text-center">Desligamentos</th>
+          <th class="text-center">Alterações</th>
+          <th>Usuário</th>
+          <th class="text-end">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in historico %}
+        <tr>
+          <td class="fw-semibold">{{ item.data }}</td>
+          <td class="text-muted small font-monospace">{{ item.arquivo }}</td>
+
+          <td class="text-center">
+            {% if item.is_baseline %}
+              <span class="badge bg-secondary">Baseline</span>
+            {% else %}
+              <span>{{ item.total }}</span>
+              <span class="text-muted small d-block">{{ item.total_clt }}C · {{ item.total_pj }}PJ</span>
+            {% endif %}
+          </td>
+
+          <td class="text-center">
+            {% if not item.is_baseline %}
+              {% if item.n_adicoes > 0 %}
+                <span class="badge bg-success fs-6">{{ item.n_adicoes }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+
+          <td class="text-center">
+            {% if not item.is_baseline %}
+              {% if item.n_remocoes > 0 %}
+                <span class="badge bg-danger fs-6">{{ item.n_remocoes }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+
+          <td class="text-center">
+            {% if not item.is_baseline %}
+              {% if item.n_alteracoes > 0 %}
+                <span class="badge bg-warning text-dark fs-6">{{ item.n_alteracoes }}</span>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+
+          <td class="text-muted small">{{ item.usuario or '—' }}</td>
+
+          <td class="text-end">
+            {% if not item.is_baseline %}
+            <div class="btn-group btn-group-sm">
+              <a href="{{ url_for('resultado', id=item.id) }}"
+                 class="btn btn-outline-primary" title="Ver resultado">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{{ url_for('download', id=item.id) }}"
+                 class="btn btn-outline-secondary" title="Baixar Excel">
+                <i class="bi bi-file-earmark-excel"></i>
+              </a>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-inbox fs-1 d-block mb-3 text-secondary"></i>
+    <h5>Nenhuma planilha processada ainda</h5>
+    <p>Envie a primeira planilha do RH para criar a baseline.</p>
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalUpload">
+      <i class="bi bi-upload me-2"></i>Enviar planilha
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal de upload -->
+<div class="modal fade" id="modalUpload" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-upload text-success me-2"></i>Enviar Planilha do RH
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="formUpload">
+        <div class="modal-body">
+
+          <!-- Zona de drop -->
+          <div class="upload-zone" id="dropZone">
+            <i class="bi bi-file-earmark-spreadsheet upload-icon"></i>
+            <p class="mb-1 fw-semibold">Arraste o arquivo aqui</p>
+            <p class="text-muted small mb-3">ou clique para selecionar</p>
+            <input type="file" name="arquivo" id="fileInput"
+                   accept=".xlsx,.xls" class="d-none" required>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+                    onclick="document.getElementById('fileInput').click()">
+              <i class="bi bi-folder2-open me-1"></i>Procurar arquivo
+            </button>
+          </div>
+
+          <!-- Nome do arquivo selecionado -->
+          <div id="fileInfo" class="d-none mt-3 p-3 bg-light rounded">
+            <i class="bi bi-file-earmark-excel text-success me-2"></i>
+            <span id="fileName" class="fw-semibold"></span>
+            <span id="fileSize" class="text-muted small ms-2"></span>
+          </div>
+
+          <div class="mt-3 p-3 bg-info-subtle rounded small">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Como funciona:</strong> O arquivo será comparado com a planilha anterior.
+            Se for o primeiro envio, será criada uma <em>baseline</em> e nenhuma diferença será mostrada.
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success px-4" id="btnEnviar" disabled>
+            <span class="spinner-border spinner-border-sm d-none me-2" id="spinner"></span>
+            <i class="bi bi-upload me-2" id="iconUpload"></i>
+            Processar planilha
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo  = document.getElementById('fileInfo');
+const fileName  = document.getElementById('fileName');
+const fileSize  = document.getElementById('fileSize');
+const btnEnviar = document.getElementById('btnEnviar');
+const formUpload = document.getElementById('formUpload');
+
+function atualizarArquivo(file) {
+  if (!file) return;
+  fileName.textContent = file.name;
+  fileSize.textContent = `(${(file.size / 1024).toFixed(0)} KB)`;
+  fileInfo.classList.remove('d-none');
+  dropZone.classList.add('has-file');
+  btnEnviar.disabled = false;
+}
+
+fileInput.addEventListener('change', () => atualizarArquivo(fileInput.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    atualizarArquivo(file);
+  }
+});
+
+formUpload.addEventListener('submit', () => {
+  btnEnviar.disabled = true;
+  document.getElementById('spinner').classList.remove('d-none');
+  document.getElementById('iconUpload').classList.add('d-none');
+  btnEnviar.querySelector('.bi-upload') && (btnEnviar.querySelector('.bi-upload').classList.add('d-none'));
+});
+</script>
+{% endblock %}

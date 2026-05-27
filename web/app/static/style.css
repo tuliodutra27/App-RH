@@ -1,0 +1,140 @@
+/* ── Analisador RH — AliseoSA ────────────────────────────────────────────── */
+
+body {
+  background: #f4f6f9;
+  color: #2d3748;
+}
+
+/* ── Navbar ──────────────────────────────────────────────────────────────── */
+.navbar {
+  border-bottom: 3px solid #0d6efd;
+}
+
+/* ── Ícone de login ──────────────────────────────────────────────────────── */
+.login-icon {
+  width: 72px;
+  height: 72px;
+  background: #0d6efd;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  font-size: 2rem;
+  color: #fff;
+}
+
+/* ── Cards de estatísticas ───────────────────────────────────────────────── */
+.stat-card {
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  border: 1px solid #e9ecef;
+  transition: transform .15s, box-shadow .15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+
+.stat-icon {
+  font-size: 1.8rem;
+  margin-bottom: .25rem;
+}
+
+.stat-number {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.stat-label {
+  font-size: .85rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-top: .2rem;
+}
+
+.stat-sub {
+  font-size: .75rem;
+  color: #9ca3af;
+  margin-top: .15rem;
+}
+
+/* ── Zona de upload ──────────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed #ced4da;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+
+.upload-zone:hover,
+.upload-zone.dragging {
+  border-color: #0d6efd;
+  background: #f0f4ff;
+}
+
+.upload-zone.has-file {
+  border-color: #198754;
+  background: #f0fff4;
+}
+
+.upload-icon {
+  font-size: 2.5rem;
+  color: #6c757d;
+  margin-bottom: .5rem;
+  display: block;
+}
+
+/* ── Abas de resultado ───────────────────────────────────────────────────── */
+.nav-tabs .nav-link {
+  color: #495057;
+  border-radius: 8px 8px 0 0;
+}
+
+.nav-tabs .nav-link.active {
+  font-weight: 700;
+}
+
+.tab-content.card {
+  border-radius: 0 8px 8px 8px;
+}
+
+/* ── Células de diff na tabela de alterações ─────────────────────────────── */
+.diff-antes {
+  background: #fff5f5 !important;
+}
+
+.diff-depois {
+  background: #f0fff4 !important;
+}
+
+/* ── Tabelas ─────────────────────────────────────────────────────────────── */
+.table > :not(caption) > * > * {
+  padding: .55rem .65rem;
+}
+
+.table-sm > :not(caption) > * > * {
+  padding: .4rem .6rem;
+}
+
+/* ── Cards gerais ────────────────────────────────────────────────────────── */
+.card {
+  border-radius: 12px;
+}
+
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+}
+
+/* ── Responsividade ──────────────────────────────────────────────────────── */
+@media (max-width: 576px) {
+  .stat-number { font-size: 1.8rem; }
+  .stat-icon   { font-size: 1.4rem; }
+}

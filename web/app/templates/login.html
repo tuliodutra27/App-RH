@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Login — Analisador RH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-sm-10 col-md-6 col-lg-4">
+
+    <div class="text-center mb-4">
+      <div class="login-icon mb-3">
+        <i class="bi bi-people-fill"></i>
+      </div>
+      <h4 class="fw-bold">Analisador RH</h4>
+      <p class="text-muted small">AliseoSA — Acesso restrito ao grupo TI</p>
+    </div>
+
+    <div class="card shadow border-0">
+      <div class="card-body p-4">
+        <form method="POST" autocomplete="off">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="usuario">
+              <i class="bi bi-person me-1"></i>Usuário de rede
+            </label>
+            <input
+              type="text" id="usuario" name="usuario"
+              class="form-control form-control-lg"
+              placeholder="ex: joao.silva"
+              autofocus autocomplete="username" required
+            >
+            <div class="form-text">Mesmo login usado no Windows/AD</div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold" for="senha">
+              <i class="bi bi-lock me-1"></i>Senha
+            </label>
+            <input
+              type="password" id="senha" name="senha"
+              class="form-control form-control-lg"
+              autocomplete="current-password" required
+            >
+          </div>
+          <button type="submit" class="btn btn-dark btn-lg w-100">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <p class="text-center text-muted small mt-3">
+      <i class="bi bi-shield-lock me-1"></i>
+      Autenticação via Active Directory
+    </p>
+
+  </div>
+</div>
+{% endblock %}

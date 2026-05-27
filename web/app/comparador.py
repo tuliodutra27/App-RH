@@ -522,23 +522,34 @@ _ORG_FILE = "organograma_estrutura.json"
 
 def carregar_estrutura_org(data_dir: Path) -> dict:
     """
-    Carrega {chave: parent_chave} das posições manuais salvas.
-    Retorna {} se não houver arquivo ou se houver erro de leitura.
+    Carrega posições manuais e relações adicionais salvas.
+    Retorna:
+        {
+          "posicoes": {chave: parent_chave},
+          "relacoes": [{"filho": chave, "pai": chave}, ...]
+        }
     """
     try:
         path = data_dir / _ORG_FILE
         if path.exists():
             with open(path, encoding="utf-8") as f:
-                return json.load(f).get("posicoes", {})
+                dados = json.load(f)
+            return {
+                "posicoes": dados.get("posicoes", {}),
+                "relacoes": dados.get("relacoes_adicionais", []),
+            }
     except Exception:
         pass
-    return {}
+    return {"posicoes": {}, "relacoes": []}
 
 
-def _gravar_org_json(data_dir: Path, posicoes_novas: dict, usuario: str) -> None:
-    """Merge incremental das posições no arquivo JSON."""
+def _gravar_org_json(
+    data_dir: Path, posicoes_novas: dict, usuario: str,
+    relacoes_novas: list | None = None,
+) -> None:
+    """Merge incremental das posições e relações adicionais no arquivo JSON."""
     path   = data_dir / _ORG_FILE
-    dados: dict = {"versao": 1, "posicoes": {}}
+    dados: dict = {"versao": 2, "posicoes": {}, "relacoes_adicionais": []}
     if path.exists():
         try:
             with open(path, encoding="utf-8") as f:
@@ -546,6 +557,16 @@ def _gravar_org_json(data_dir: Path, posicoes_novas: dict, usuario: str) -> None
         except Exception:
             pass
     dados.setdefault("posicoes", {}).update(posicoes_novas)
+    dados.setdefault("relacoes_adicionais", [])
+    if relacoes_novas is not None:
+        # Remove entradas antigas para os filhos que estão sendo atualizados
+        filhos_novos = {r["filho"] for r in relacoes_novas}
+        dados["relacoes_adicionais"] = [
+            r for r in dados["relacoes_adicionais"]
+            if r.get("filho") not in filhos_novos
+        ]
+        dados["relacoes_adicionais"].extend(relacoes_novas)
+    dados["versao"]         = 2
     dados["atualizado_em"]  = datetime.now().isoformat()
     dados["atualizado_por"] = usuario
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -567,9 +588,24 @@ def salvar_posicoes_org(
     _gravar_org_json(data_dir, posicoes, usuario)
 
 
+def salvar_relacoes_org(
+    data_dir: Path, filho: str, pais_adicionais: list, usuario: str = ""
+) -> None:
+    """Salva/substitui os gestores adicionais (múltiplos) de UM colaborador.
+    Passa lista vazia para remover todas as relações adicionais deste filho.
+    """
+    relacoes = [
+        {"filho": filho, "pai": pai}
+        for pai in pais_adicionais
+        if pai and pai != filho
+    ]
+    _gravar_org_json(data_dir, {}, usuario, relacoes)
+
+
 def gerar_organograma_hibrido(
     colaboradores: list[dict],
     posicoes: dict,
+    relacoes: list | None = None,
 ) -> dict:
     """
     Constrói a lista de nós do organograma mesclando:
@@ -668,4 +704,19 @@ def gerar_organograma_hibrido(
     n_manual   = sum(1 for n in nodes if n.get("manual")  and n["id"] != "__ROOT__")
     n_sugerido = sum(1 for n in nodes if not n.get("manual"))
 
-    return {"nodes": nodes, "n_manual": n_manual, "n_sugerido": n_sugerido}
+    # ── 3. Arestas extras (múltiplos gestores / linhas pontilhadas) ───────────
+    chaves_validas = {n["id"] for n in nodes}
+    arestas_extras = [
+        {"filho": r["filho"], "pai": r["pai"]}
+        for r in (relacoes or [])
+        if r.get("filho") in chaves_validas
+        and r.get("pai") in chaves_validas
+        and r.get("filho") != r.get("pai")
+    ]
+
+    return {
+        "nodes":          nodes,
+        "n_manual":       n_manual,
+        "n_sugerido":     n_sugerido,
+        "arestas_extras": arestas_extras,
+    }

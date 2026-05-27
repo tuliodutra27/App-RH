@@ -32,18 +32,30 @@
   </div>
 
   <div class="d-flex gap-2 flex-wrap align-items-start">
-    <!-- Controles de visualização -->
     <div class="btn-group btn-group-sm">
       <button class="btn btn-outline-secondary" onclick="expandirTudo()" title="Expandir todos">
         <i class="bi bi-arrows-expand"></i>
       </button>
-      <button class="btn btn-outline-secondary" onclick="recolherTudo()" title="Recolher ao nível gerencial">
+      <button class="btn btn-outline-secondary" onclick="recolherTudo()" title="Recolher">
         <i class="bi bi-arrows-collapse"></i>
       </button>
-      <button class="btn btn-outline-primary" onclick="ajustarTela()" title="Centralizar e ajustar zoom">
-        <i class="bi bi-fullscreen"></i>
+      <button class="btn btn-outline-secondary" onclick="ajustarTela()" title="Centralizar e ajustar zoom">
+        <i class="bi bi-aspect-ratio"></i>
+      </button>
+      <button class="btn btn-outline-secondary" onclick="limparDrag()" title="Desfazer reposicionamentos manuais">
+        <i class="bi bi-arrow-counterclockwise"></i>
       </button>
     </div>
+    <button id="btn-fullscreen" class="btn btn-sm btn-outline-primary"
+            onclick="toggleFullscreen()" title="Tela cheia">
+      <i class="bi bi-fullscreen"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-success" onclick="exportarPDF()" title="Exportar / Imprimir PDF">
+      <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="exportarSVG()" title="Baixar SVG">
+      <i class="bi bi-download me-1"></i>SVG
+    </button>
   </div>
 </div>
 
@@ -54,7 +66,7 @@
   <div class="flex-grow-1">
     <strong>{{ n_sugerido }} posição(ões) sugerida(s) automaticamente</strong>
     — nós com <span class="org-badge-sugerido">borda tracejada</span>.
-    Clique em <strong>✏</strong> em cada nó para corrigir, ou aceite todas as sugestões de uma vez.
+    Clique em <strong>✏</strong> em cada nó para corrigir, ou aceite todas de uma vez.
   </div>
   <button class="btn btn-sm btn-warning flex-shrink-0" onclick="aceitarTodasSugestoes(this)">
     <i class="bi bi-check-all me-1"></i>Aceitar todas ({{ n_sugerido }})
@@ -66,43 +78,48 @@
 <div class="d-flex gap-3 align-items-center mb-3 flex-wrap">
   <small class="text-muted">
     <i class="bi bi-check-circle-fill text-success me-1"></i>
-    <strong>{{ n_manual }}</strong> posição(ões) confirmada(s) manualmente
+    <strong>{{ n_manual }}</strong> confirmada(s) manualmente
     {% if n_sugerido == 0 %}&nbsp;·&nbsp;
       <i class="bi bi-stars text-success me-1"></i>Organograma totalmente confirmado!
     {% endif %}
   </small>
   <span class="vr"></span>
   <small class="text-muted">
-    Hierarquia: &nbsp;
     <span class="badge rounded-pill" style="background:#1e3a5f">Sup.</span>
     <span class="badge rounded-pill" style="background:#1a6095">Dir.</span>
     <span class="badge rounded-pill" style="background:#1e7fc0">Ger.</span>
     <span class="badge rounded-pill" style="background:#2e9dd4">Coord.</span>
-    <span class="badge rounded-pill" style="background:#5ab3e4">Sup.</span>
+    <span class="badge rounded-pill" style="background:#5ab3e4">Sup./Líder</span>
     <span class="badge rounded-pill" style="background:#80c8ef;color:#333">Analista+</span>
   </small>
   <span class="vr"></span>
   <small class="text-muted">
-    <i class="bi bi-mouse2 me-1"></i>Scroll=zoom &nbsp; Arrastar=mover &nbsp;
-    ✏ no nó = editar posição
+    <i class="bi bi-mouse2 me-1"></i>Scroll=zoom &nbsp;
+    <i class="bi bi-arrows-move me-1"></i>Arrastar nó=mover &nbsp;
+    ✏ no nó=editar
   </small>
 </div>
 {% endif %}
 
 <!-- Organograma SVG -->
-<div class="card shadow-sm border-0">
-  <div id="org-container"
-       style="height: calc(100vh - 310px); min-height: 420px; overflow: hidden;
-              position: relative; border-radius: .375rem .375rem 0 0;">
-    <svg id="org-svg" width="100%" height="100%"></svg>
-  </div>
-  <div class="card-footer bg-body py-2 px-3 text-muted small d-flex justify-content-between flex-wrap gap-1">
-    <span>
-      <i class="bi bi-info-circle me-1"></i>
-      Posições salvas em <code>organograma_estrutura.json</code> — persistem entre uploads.
-      Colaboradores novos aparecem com borda tracejada até confirmação.
-    </span>
-    <span id="org-status" class="fw-semibold text-body"></span>
+<div id="org-print-wrapper">
+  <div class="card shadow-sm border-0">
+    <div id="org-container"
+         style="height: calc(100vh - 310px); min-height: 420px; overflow: hidden;
+                position: relative; border-radius: .375rem .375rem 0 0;">
+      <svg id="org-svg" width="100%" height="100%"></svg>
+    </div>
+    <div class="card-footer bg-body py-2 px-3 text-muted small d-flex justify-content-between flex-wrap gap-1">
+      <span>
+        <i class="bi bi-info-circle me-1"></i>
+        Posições salvas em <code>organograma_estrutura.json</code>.
+        <span class="text-warning small" id="msg-drag-ativo" style="display:none">
+          <i class="bi bi-arrows-move me-1"></i>Nós reposicionados — use
+          <strong><i class="bi bi-arrow-counterclockwise"></i></strong> para desfazer.
+        </span>
+      </span>
+      <span id="org-status" class="fw-semibold text-body"></span>
+    </div>
   </div>
 </div>
 
@@ -118,14 +135,15 @@
       <div id="tt-tipo"></div>
       <small class="text-muted" id="tt-nivel-label"></small>
     </div>
-    <p class="small mb-0" id="tt-manual"></p>
+    <p class="small mb-1" id="tt-manual"></p>
+    <p class="text-muted small mb-0" id="tt-extras"></p>
     <p class="text-muted small mb-0" id="tt-sub"></p>
   </div>
 </div>
 
-<!-- ─── Modal de edição de posição ──────────────────────────────────────── -->
+<!-- ─── Modal de edição de posição ──────────────────────────────────────────── -->
 <div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content shadow">
 
       <div class="modal-header border-0 pb-0">
@@ -143,32 +161,56 @@
           <p class="text-muted small mb-0" id="edit-depto"></p>
         </div>
 
-        <!-- Opção raiz -->
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="chk-raiz"
-                 onchange="toggleRaiz(this)">
-          <label class="form-check-label" for="chk-raiz">
-            <strong>Reporta diretamente ao Conselho</strong>
-            <span class="text-muted">(sem superior direto)</span>
-          </label>
-        </div>
+        <div class="row g-3">
+          <!-- Coluna 1: Superior direto (hierarquia principal) -->
+          <div class="col-12 col-md-6">
+            <h6 class="fw-semibold mb-2">
+              <i class="bi bi-diagram-3 text-primary me-1"></i>Superior direto
+              <span class="text-muted fw-normal small">(linha sólida)</span>
+            </h6>
 
-        <!-- Busca e seleção do novo pai -->
-        <div id="grupo-selecao-pai">
-          <label class="form-label fw-semibold mb-1">
-            <i class="bi bi-person-check me-1"></i>Novo superior direto:
-          </label>
-          <input type="search" id="busca-novo-pai"
-                 class="form-control form-control-sm mb-2"
-                 placeholder="Buscar por nome ou cargo..."
-                 autocomplete="off"
-                 oninput="filtrarOpcoesPai(this.value)">
-          <select id="select-novo-pai" class="form-select" size="7">
-            <!-- populado pelo JS -->
-          </select>
-          <div class="form-text">
-            <i class="bi bi-lightbulb me-1"></i>
-            Selecione quem será o superior direto desta pessoa.
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="chk-raiz"
+                     onchange="toggleRaiz(this)">
+              <label class="form-check-label" for="chk-raiz">
+                Reporta ao Conselho (sem superior)
+              </label>
+            </div>
+
+            <div id="grupo-selecao-pai">
+              <input type="search" id="busca-novo-pai"
+                     class="form-control form-control-sm mb-2"
+                     placeholder="Buscar por nome ou cargo..."
+                     autocomplete="off"
+                     oninput="filtrarOpcoesPai(this.value)">
+              <select id="select-novo-pai" class="form-select" size="8">
+              </select>
+            </div>
+          </div>
+
+          <!-- Coluna 2: Gestores adicionais -->
+          <div class="col-12 col-md-6">
+            <h6 class="fw-semibold mb-2">
+              <i class="bi bi-diagram-2 text-warning me-1"></i>Gestores adicionais
+              <span class="text-muted fw-normal small">(linhas tracejadas laranja)</span>
+            </h6>
+            <p class="text-muted small mb-2">
+              Pessoas que também gerenciam este colaborador.
+              Use para relações matriciais ou dupla chefia.
+            </p>
+            <input type="search" id="busca-adicionais"
+                   class="form-control form-control-sm mb-2"
+                   placeholder="Buscar gestor adicional..."
+                   autocomplete="off"
+                   oninput="filtrarAdicionais(this.value)">
+            <div id="lista-adicionais"
+                 style="max-height:180px;overflow-y:auto;border:1px solid var(--bs-border-color);
+                        border-radius:.375rem;padding:6px 8px">
+              <!-- checkboxes populados pelo JS -->
+            </div>
+            <div class="form-text mt-1">
+              <i class="bi bi-lightbulb me-1"></i>Marque quantos forem necessários.
+            </div>
           </div>
         </div>
       </div>
@@ -189,13 +231,15 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script>
-// ──────────────────────────────────────────────────────────────────────────────
-//  Organograma — Indicadores RH  ·  D3.js v7  ·  Edição manual de posições
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+//  Organograma — Indicadores RH  ·  D3.js v7
+//  Recursos: drag de nós, tela cheia, PDF/print, múltiplos gestores
+// ══════════════════════════════════════════════════════════════════════════════
 
-const FLAT_DATA   = {{ arvore      | tojson | safe }};
-const TODOS_COLAB = {{ todos_colab | tojson | safe }};
-const TOTAL_NOS   = FLAT_DATA.length;
+const FLAT_DATA      = {{ arvore         | tojson | safe }};
+const TODOS_COLAB    = {{ todos_colab    | tojson | safe }};
+const ARESTAS_EXTRAS = {{ arestas_extras | tojson | safe }};
+const TOTAL_NOS      = FLAT_DATA.length;
 
 // ── Rótulos dos níveis ────────────────────────────────────────────────────────
 const NIVEL_LABEL = {
@@ -212,28 +256,34 @@ const NIVEL_LABEL = {
    '9': 'Estagiário(a) / Aprendiz',
 };
 
-// ── Dimensões ─────────────────────────────────────────────────────────────────
-const NW     = 206,  NH  = 66;
-const NH_HDR = 24,   RAD = 7;
-const HGAP   = 22,   VGAP = 50;
+// ── Dimensões dos nós ─────────────────────────────────────────────────────────
+const NW = 206, NH = 66, NH_HDR = 24, RAD = 7, HGAP = 22, VGAP = 50;
 
 // ── Paleta de cores por profundidade ─────────────────────────────────────────
 const CORES = ['#1e3a5f','#1a6095','#1e7fc0','#2e9dd4','#5ab3e4','#80c8ef','#a0d8f8'];
 const corD  = d => CORES[Math.min(d.depth, CORES.length - 1)];
 
-// ── Setup SVG ─────────────────────────────────────────────────────────────────
+// ── Setup SVG — camadas bem definidas ────────────────────────────────────────
 const contEl  = document.getElementById('org-container');
 const svgSel  = d3.select('#org-svg');
 const gRoot   = svgSel.append('g').attr('class','org-root');
+const gLinksX = gRoot.append('g').attr('class','org-links-extra');  // arestas adicionais
+const gLinks  = gRoot.append('g').attr('class','org-links');        // arestas primárias
+const gNodes  = gRoot.append('g').attr('class','org-nodes');        // nós
 const svgDefs = svgSel.append('defs');
 
-const zoomBeh = d3.zoom().scaleExtent([0.04,2.5])
-  .on('zoom', e => gRoot.attr('transform', e.transform));
+// ── Zoom / Pan ────────────────────────────────────────────────────────────────
+let currentTransform = d3.zoomIdentity;
+const zoomBeh = d3.zoom().scaleExtent([0.04, 2.5])
+  .on('zoom', e => {
+    gRoot.attr('transform', e.transform);
+    currentTransform = e.transform;
+  });
 svgSel.call(zoomBeh).on('dblclick.zoom', null);
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 const tooltipEl = document.getElementById('org-tooltip');
-let tooltipPause = false;   // pausa tooltip quando modal estiver aberto
+let tooltipPause = false;
 
 function mostrarTooltip(event, d) {
   if (tooltipPause) return;
@@ -242,32 +292,111 @@ function mostrarTooltip(event, d) {
   document.getElementById('tt-cargo').textContent = data.cargo        || '—';
   document.getElementById('tt-depto').textContent = data.departamento || '';
   document.getElementById('tt-tipo').innerHTML    = data.tipo
-    ? `<span class="badge ${data.tipo==='CLT'?'bg-primary':'bg-info text-dark'}">${data.tipo}</span>`
-    : '';
-  const nLbl = NIVEL_LABEL[String(data.nivel ?? '')] || '';
-  document.getElementById('tt-nivel-label').textContent = nLbl ? `· ${nLbl}` : '';
+    ? `<span class="badge ${data.tipo==='CLT'?'bg-primary':'bg-info text-dark'}">${data.tipo}</span>` : '';
+  document.getElementById('tt-nivel-label').textContent =
+    (NIVEL_LABEL[String(data.nivel ?? '')] || '');
   document.getElementById('tt-manual').innerHTML = data.chave === '__ROOT__' ? '' :
     data.manual
       ? '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Posição confirmada</span>'
-      : '<span class="text-warning"><i class="bi bi-exclamation-circle me-1"></i>Posição sugerida (clique ✏ para editar)</span>';
+      : '<span class="text-warning"><i class="bi bi-exclamation-circle me-1"></i>Sugerida (✏ para editar)</span>';
+  // Arestas adicionais
+  const extras = ARESTAS_EXTRAS.filter(e => e.filho === data.chave);
+  const nodeById = {};
+  root && root.descendants().forEach(n => { nodeById[n.id] = n; });
+  if (extras.length) {
+    document.getElementById('tt-extras').textContent =
+      '↔ Gest. adicionais: ' + extras.map(e => {
+        const n = nodeById[e.pai]; return n ? n.data.name : e.pai;
+      }).join(', ');
+  } else {
+    document.getElementById('tt-extras').textContent = '';
+  }
   const nd = (d.children?.length||0) + (d._children?.length||0);
   document.getElementById('tt-sub').textContent =
-    nd > 0 ? `${nd} subordinado(s) direto(s)` : 'Sem subordinados diretos';
+    nd > 0 ? `${nd} subordinado(s) direto(s)` : '';
   tooltipEl.style.display = 'block';
   moverTooltip(event);
 }
 function moverTooltip(event) {
-  const bw = tooltipEl.offsetWidth||270, bh = tooltipEl.offsetHeight||150;
-  const x  = event.clientX + 14, y = event.clientY - 14;
-  tooltipEl.style.left = (x + bw > window.innerWidth  ? x - bw - 14 : x) + 'px';
-  tooltipEl.style.top  = (y + bh > window.innerHeight ? y - bh + 14 : y) + 'px';
+  const bw=tooltipEl.offsetWidth||270, bh=tooltipEl.offsetHeight||160;
+  const x=event.clientX+14, y=event.clientY-14;
+  tooltipEl.style.left=(x+bw>window.innerWidth ? x-bw-14 : x)+'px';
+  tooltipEl.style.top =(y+bh>window.innerHeight? y-bh+14 : y)+'px';
 }
-function esconderTooltip() { tooltipEl.style.display = 'none'; }
+function esconderTooltip() { tooltipEl.style.display='none'; }
+
+// ── Drag de nós ───────────────────────────────────────────────────────────────
+const dragOffset = {};   // {_uid: {dx, dy}}
+let   isDragging = false;
+
+function getPos(d) {
+  const off = dragOffset[d._uid] || {dx:0, dy:0};
+  return {x: d.x + off.dx, y: d.y + off.dy};
+}
+
+const dragBeh = d3.drag()
+  .filter(ev => !ev.target.closest('.org-edit-btn'))
+  .on('start', (ev, d) => {
+    isDragging = false;
+    ev.sourceEvent.stopPropagation();
+    d3.select(ev.currentTarget).raise();
+  })
+  .on('drag', (ev, d) => {
+    isDragging = true;
+    const k = currentTransform.k || 1;
+    const off = dragOffset[d._uid] || {dx:0, dy:0};
+    dragOffset[d._uid] = {dx: off.dx + ev.dx/k, dy: off.dy + ev.dy/k};
+    d3.select(ev.currentTarget).attr('transform', `translate(${getPos(d).x},${getPos(d).y})`);
+    redrawLinks();
+    document.getElementById('msg-drag-ativo').style.display = 'inline';
+  })
+  .on('end', () => { setTimeout(()=>{ isDragging=false; }, 80); });
+
+function limparDrag() {
+  Object.keys(dragOffset).forEach(k => delete dragOffset[k]);
+  if (root) update(root);
+  document.getElementById('msg-drag-ativo').style.display = 'none';
+}
+
+// ── Bezier para links (nível top) ─────────────────────────────────────────────
+const bezier = d3.linkVertical().x(d=>d.x).y(d=>d.y);
+
+// ── Arestas extras (múltiplos gestores) ───────────────────────────────────────
+function drawExtrasLinks() {
+  if (!root) return;
+  const nodeById = {};
+  root.descendants().forEach(n => { nodeById[n.id] = n; });
+
+  const valid = ARESTAS_EXTRAS.filter(e => nodeById[e.filho] && nodeById[e.pai]);
+  const sel = gLinksX.selectAll('path.org-link-extra')
+    .data(valid, e => e.filho + '→' + e.pai);
+
+  sel.enter().append('path').attr('class','org-link-extra')
+    .merge(sel)
+    .attr('d', e => {
+      const sp = getPos(nodeById[e.pai]);
+      const tp = getPos(nodeById[e.filho]);
+      return bezier({
+        source: {x: sp.x, y: sp.y + NH/2},
+        target: {x: tp.x, y: tp.y - NH/2},
+      });
+    });
+  sel.exit().remove();
+}
+
+function redrawLinks() {
+  gLinks.selectAll('path.org-link').attr('d', l => {
+    const sp = getPos(l.source);
+    const tp = getPos(l.target);
+    return bezier({source:{x:sp.x, y:sp.y+NH/2}, target:{x:tp.x, y:tp.y-NH/2}});
+  });
+  drawExtrasLinks();
+}
 
 // ── Hierarquia D3 ─────────────────────────────────────────────────────────────
 let root;
 try {
-  root = d3.stratify().id(d => d.id).parentId(d => d.parentId)(FLAT_DATA);
+  root = d3.stratify().id(d=>d.id).parentId(d=>d.parentId)(FLAT_DATA);
 } catch(err) {
   console.error('Erro ao construir hierarquia:', err);
   document.getElementById('org-status').innerHTML =
@@ -295,29 +424,27 @@ function update(source) {
   const nodes = root.descendants();
   const links = root.links();
 
-  // Links
-  const bezier = d3.linkVertical().x(d=>d.x).y(d=>d.y);
-  const lSel   = gRoot.selectAll('path.org-link').data(links, d=>d.target._uid);
-
+  // ── Links primários ──
+  const lSel = gLinks.selectAll('path.org-link').data(links, d=>d.target._uid);
   lSel.enter().append('path').attr('class','org-link')
     .attr('d', ()=>{ const o={x:source.x0??0,y:(source.y0??0)+NH/2}; return bezier({source:o,target:o}); })
     .merge(lSel).transition().duration(T)
-    .attr('d', d=>bezier({
-      source:{x:d.source.x, y:d.source.y+NH/2},
-      target:{x:d.target.x, y:d.target.y-NH/2},
-    }));
-
+    .attr('d', d=>{
+      const sp=getPos(d.source), tp=getPos(d.target);
+      return bezier({source:{x:sp.x,y:sp.y+NH/2}, target:{x:tp.x,y:tp.y-NH/2}});
+    });
   lSel.exit().transition().duration(T)
     .attr('d',()=>{ const o={x:source.x,y:source.y+NH/2}; return bezier({source:o,target:o}); })
     .remove();
 
-  // Nós
-  const nSel  = gRoot.selectAll('g.org-ng').data(nodes, d=>d._uid);
+  // ── Nós ──
+  const nSel  = gNodes.selectAll('g.org-ng').data(nodes, d=>d._uid);
   const enter = nSel.enter().append('g').attr('class','org-ng')
     .attr('transform', ()=>`translate(${source.x0??0},${source.y0??0})`)
     .style('cursor', d=>(d.children||d._children)?'pointer':'default')
+    .call(dragBeh)
     .on('click', (ev, d)=>{
-      if (ev.target.closest('.org-edit-btn')) return;  // deixa para o botão de edição
+      if (isDragging || ev.target.closest('.org-edit-btn')) return;
       ev.stopPropagation();
       if (d.children)       { d._children=d.children; d.children=null; }
       else if (d._children) { d.children=d._children; d._children=null; }
@@ -338,42 +465,45 @@ function update(source) {
 
   const inner = enter.append('g').attr('clip-path', d=>`url(#oc${d._uid})`);
 
-  // Cabeçalho colorido
   inner.append('rect').attr('class','org-hdr-rect')
     .attr('x',-NW/2).attr('y',-NH/2)
     .attr('width',NW).attr('height',NH_HDR)
     .attr('fill', d=>corD(d));
 
-  // Fundo do corpo
   inner.append('rect').attr('class','org-body-bg')
     .attr('x',-NW/2).attr('y',-NH/2+NH_HDR)
     .attr('width',NW).attr('height',NH-NH_HDR);
 
-  // Texto cargo
   inner.append('text').attr('class','org-cargo-txt')
     .attr('x',-NW/2+9).attr('y',-NH/2+NH_HDR/2).attr('dy','0.35em')
     .text(d=>truncar(d.data.cargo,27));
 
-  // Texto nome
   inner.append('text').attr('class','org-nome-txt')
     .attr('x',-NW/2+9).attr('y',-NH/2+NH_HDR+(NH-NH_HDR)/2).attr('dy','0.35em')
     .text(d=>truncar(d.data.name,25));
 
-  // ✏ Botão de edição (no canto direito do cabeçalho — oculto para __ROOT__)
-  enter.filter(d => d.data.chave !== '__ROOT__')
+  // ✏ Botão de edição
+  enter.filter(d=>d.data.chave !== '__ROOT__')
     .append('text').attr('class','org-edit-btn')
-    .attr('x', NW/2-13).attr('y',-NH/2+13)
+    .attr('x',NW/2-13).attr('y',-NH/2+13)
     .attr('text-anchor','middle').attr('dominant-baseline','middle')
-    .attr('fill','rgba(255,255,255,0.0)')   // invisível por padrão
+    .attr('fill','rgba(255,255,255,0.0)')
     .attr('font-size','12px').attr('cursor','pointer')
     .text('✏')
-    .on('click', (ev, d)=>{
+    .on('click', (ev,d)=>{
       ev.stopPropagation();
       esconderTooltip();
       abrirModalEditar(d);
     });
 
-  // Borda (sobre o clip)
+  // Indicador de múltiplos gestores (● laranja no canto superior esquerdo)
+  enter.filter(d => ARESTAS_EXTRAS.some(e => e.filho === d.data.chave))
+    .append('circle').attr('class','org-multi-dot')
+    .attr('cx',-NW/2+7).attr('cy',-NH/2+7).attr('r',5)
+    .attr('fill','#fd7e14').attr('stroke','white').attr('stroke-width',1.2)
+    .append('title').text('Múltiplos gestores');
+
+  // Borda
   enter.append('rect').attr('class','org-border')
     .attr('x',-NW/2).attr('y',-NH/2)
     .attr('width',NW).attr('height',NH)
@@ -382,13 +512,13 @@ function update(source) {
     .attr('stroke', d=>corD(d))
     .attr('stroke-dasharray', d=>d.data.manual?'none':'5,3');
 
-  // Indicador de colapso
+  // Dot de colapso
   enter.append('circle').attr('class','org-dot')
     .attr('cy',NH/2+5).attr('r',5).attr('stroke-width',1.5);
 
-  // UPDATE — posição + dot + visibilidade do botão de edição
+  // UPDATE — posição + dots
   const all = nSel.merge(enter);
-  all.transition().duration(T).attr('transform', d=>`translate(${d.x},${d.y})`);
+  all.transition().duration(T).attr('transform', d=>`translate(${getPos(d).x},${getPos(d).y})`);
   all.select('.org-dot')
     .attr('fill',   d=>d._children?'#dc3545':(d.children?'#198754':'transparent'))
     .attr('stroke', d=>(d._children||d.children)?'white':'none');
@@ -401,14 +531,12 @@ function update(source) {
     .style('opacity',0).remove();
 
   nodes.forEach(d=>{ d.x0=d.x; d.y0=d.y; });
+  drawExtrasLinks();
   document.getElementById('org-status').textContent =
     `${nodes.length} de ${TOTAL_NOS} nós visíveis`;
 }
 
-// ── Mostrar ✏ no hover do nó ─────────────────────────────────────────────────
-// Usando CSS (ver <style> abaixo): .org-ng:hover .org-edit-btn
-
-// ── Controles gerais ──────────────────────────────────────────────────────────
+// ── Controles de visualização ─────────────────────────────────────────────────
 function ajustarTela() {
   const b = gRoot.node().getBBox();
   if (!b.width||!b.height) return;
@@ -420,18 +548,123 @@ function ajustarTela() {
 }
 
 function expandirTudo() {
-  root.descendants().forEach(d=>{
+  root && root.descendants().forEach(d=>{
     if(d._children){d.children=d._children;d._children=null;}
   });
   update(root); setTimeout(ajustarTela,360);
 }
 
 function recolherTudo() {
-  root.descendants().forEach(d=>{
+  root && root.descendants().forEach(d=>{
     const n=d.data.nivel??99;
     if(d.depth>0&&d.children&&(n>=5||d.depth>=4)){d._children=d.children;d.children=null;}
   });
   update(root); setTimeout(ajustarTela,360);
+}
+
+// ── Tela cheia ────────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    contEl.requestFullscreen().catch(e => console.warn(e));
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const isFs = !!document.fullscreenElement;
+  const btn  = document.getElementById('btn-fullscreen');
+  if (isFs) {
+    contEl.style.height = '100vh';
+    contEl.style.borderRadius = '0';
+    btn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+    btn.title     = 'Sair da tela cheia';
+  } else {
+    contEl.style.height = '';
+    contEl.style.borderRadius = '';
+    btn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+    btn.title     = 'Tela cheia';
+  }
+  setTimeout(ajustarTela, 200);
+});
+
+// ── Exportar PDF (via print) ──────────────────────────────────────────────────
+function exportarPDF() {
+  const prevTransform = currentTransform;
+  // Expande tudo
+  root && root.descendants().forEach(d=>{
+    if(d._children){d.children=d._children;d._children=null;}
+  });
+  update(root);
+  setTimeout(()=>{
+    // Configura viewBox para englobar todo o conteúdo
+    const b = gRoot.node().getBBox();
+    if (!b.width||!b.height) { window.print(); return; }
+    const pad = 30;
+    const vb  = `${b.x-pad} ${b.y-pad} ${b.width+pad*2} ${b.height+pad*2}`;
+    svgSel.attr('viewBox', vb);
+    // Remove transform do grupo (o viewBox faz o posicionamento)
+    gRoot.attr('transform', null);
+
+    window.print();
+
+    window.addEventListener('afterprint', ()=>{
+      svgSel.attr('viewBox', null);
+      gRoot.attr('transform', prevTransform.toString());
+      // Recolapsa
+      root && root.descendants().forEach(d=>{
+        const n=d.data.nivel??99;
+        if(d.depth>0&&d.children&&(n>=5||d.depth>=4)){d._children=d.children;d.children=null;}
+      });
+      update(root); setTimeout(ajustarTela, 200);
+    }, {once:true});
+  }, 600);
+}
+
+// ── Exportar SVG ──────────────────────────────────────────────────────────────
+function exportarSVG() {
+  const prevTransform = currentTransform;
+  root && root.descendants().forEach(d=>{
+    if(d._children){d.children=d._children;d._children=null;}
+  });
+  update(root);
+  setTimeout(()=>{
+    const b = gRoot.node().getBBox();
+    const pad = 30;
+    const svgEl = document.getElementById('org-svg');
+    const clone = svgEl.cloneNode(true);
+    clone.setAttribute('viewBox', `${b.x-pad} ${b.y-pad} ${b.width+pad*2} ${b.height+pad*2}`);
+    clone.setAttribute('width',  b.width  + pad*2);
+    clone.setAttribute('height', b.height + pad*2);
+    // Remove transform do grupo raiz no clone
+    clone.querySelector('.org-root')?.removeAttribute('transform');
+
+    // Inline dos estilos críticos
+    const style = document.createElement('style');
+    style.textContent = `
+      .org-link{fill:none;stroke:#adb5bd;stroke-width:1.5px}
+      .org-link-extra{fill:none;stroke:#fd7e14;stroke-width:1.8px;stroke-dasharray:6,3;opacity:.8}
+      .org-body-bg{fill:#fff}
+      .org-cargo-txt{fill:#ffffffdd;font-size:10px;font-weight:500;font-family:Arial,sans-serif}
+      .org-nome-txt{fill:#212529;font-size:12px;font-weight:700;font-family:Arial,sans-serif}
+      .org-dot{transition:fill .2s}
+    `;
+    clone.insertBefore(style, clone.firstChild);
+
+    const blob = new Blob([clone.outerHTML], {type:'image/svg+xml;charset=utf-8'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'organograma.svg'; a.click();
+    URL.revokeObjectURL(url);
+
+    // Restaura estado
+    gRoot.attr('transform', prevTransform.toString());
+    root && root.descendants().forEach(d=>{
+      const n=d.data.nivel??99;
+      if(d.depth>0&&d.children&&(n>=5||d.depth>=4)){d._children=d.children;d.children=null;}
+    });
+    update(root); setTimeout(ajustarTela, 200);
+  }, 600);
 }
 
 // ── Modal de edição ───────────────────────────────────────────────────────────
@@ -441,30 +674,32 @@ let opcoesPai    = [];
 function abrirModalEditar(d) {
   editandoNode = d;
   tooltipPause = true;
+
   document.getElementById('edit-nome').textContent  = d.data.name;
   document.getElementById('edit-cargo').textContent = d.data.cargo;
   document.getElementById('edit-depto').textContent = d.data.departamento || '';
 
-  // Verifica se é raiz (parentId é __ROOT__ ou vazio)
   const isRaiz = !d.data.parentId || d.data.parentId === '__ROOT__';
   document.getElementById('chk-raiz').checked = isRaiz;
 
-  // Monta opções (todos exceto ele mesmo e o __ROOT__ virtual)
   opcoesPai = TODOS_COLAB
     .filter(c => c.chave !== d.data.chave)
     .map(c => ({ value: c.chave, text: `${c.nome} — ${c.cargo}` }));
 
-  document.getElementById('busca-novo-pai').value = '';
+  document.getElementById('busca-novo-pai').value   = '';
+  document.getElementById('busca-adicionais').value = '';
   renderOpcoesPai(isRaiz ? '' : (d.data.parentId || ''));
   toggleRaiz(document.getElementById('chk-raiz'));
+
+  // Gestores adicionais já salvos
+  const atuais = ARESTAS_EXTRAS.filter(e => e.filho === d.data.chave).map(e => e.pai);
+  renderAdicionais('', atuais);
 
   const btn = document.getElementById('btn-salvar-pai');
   btn.disabled = false;
   btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Salvar posição';
 
   new bootstrap.Modal(document.getElementById('modalEditar')).show();
-
-  // Quando o modal fechar, reativa o tooltip
   document.getElementById('modalEditar')
     .addEventListener('hidden.bs.modal', ()=>{ tooltipPause=false; }, {once:true});
 }
@@ -490,32 +725,79 @@ function filtrarOpcoesPai(valor) {
 function toggleRaiz(chk) {
   const grp = document.getElementById('grupo-selecao-pai');
   const sel = document.getElementById('select-novo-pai');
-  grp.style.opacity  = chk.checked ? '0.35' : '1';
-  sel.disabled       = chk.checked;
+  grp.style.opacity = chk.checked ? '0.35' : '1';
+  sel.disabled      = chk.checked;
 }
 
+// ── Gestores adicionais: renderiza checkboxes ─────────────────────────────────
+function renderAdicionais(filtro='', selecionados=[]) {
+  const container = document.getElementById('lista-adicionais');
+  const f = filtro.toLowerCase();
+  container.innerHTML = '';
+  const candidatos = TODOS_COLAB.filter(c =>
+    c.chave !== '__ROOT__' &&
+    c.chave !== editandoNode?.data.chave &&
+    (!f || (c.nome + ' ' + c.cargo).toLowerCase().includes(f))
+  );
+  if (!candidatos.length) {
+    container.innerHTML = '<small class="text-muted">Nenhum resultado.</small>';
+    return;
+  }
+  candidatos.forEach(c => {
+    const safeId = 'adic-' + c.chave.replace(/[^a-z0-9]/gi,'_');
+    const div = document.createElement('div');
+    div.className = 'form-check py-0 my-0';
+    div.innerHTML = `
+      <input class="form-check-input" type="checkbox" id="${safeId}" value="${c.chave}"
+             ${selecionados.includes(c.chave) ? 'checked' : ''}>
+      <label class="form-check-label small" for="${safeId}"
+             style="font-size:.8rem;line-height:1.7">
+        <strong>${c.nome}</strong> <span class="text-muted">— ${c.cargo}</span>
+      </label>`;
+    container.appendChild(div);
+  });
+}
+
+function filtrarAdicionais(valor) {
+  // Salva os já marcados antes de re-renderizar
+  const marcados = Array.from(
+    document.querySelectorAll('#lista-adicionais input[type=checkbox]:checked')
+  ).map(el => el.value);
+  renderAdicionais(valor, marcados);
+}
+
+// ── Salvar posição (principal + adicionais) ───────────────────────────────────
 async function salvarNovoPai() {
   if (!editandoNode) return;
-  const isRaiz = document.getElementById('chk-raiz').checked;
-  const sel    = document.getElementById('select-novo-pai');
+  const isRaiz     = document.getElementById('chk-raiz').checked;
+  const sel        = document.getElementById('select-novo-pai');
   const novoParent = isRaiz ? '' : (sel.value || '');
+  const adicionais = Array.from(
+    document.querySelectorAll('#lista-adicionais input[type=checkbox]:checked')
+  ).map(el => el.value);
 
   const btn = document.getElementById('btn-salvar-pai');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
 
   try {
-    const resp = await fetch('/api/organograma/posicao', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ chave: editandoNode.data.chave, parentChave: novoParent }),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const [r1, r2] = await Promise.all([
+      fetch('/api/organograma/posicao', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({chave: editandoNode.data.chave, parentChave: novoParent}),
+      }),
+      fetch('/api/organograma/relacoes', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({filho: editandoNode.data.chave, pais: adicionais}),
+      }),
+    ]);
+    if (!r1.ok) throw new Error(`posição: HTTP ${r1.status}`);
+    if (!r2.ok) throw new Error(`relações: HTTP ${r2.status}`);
     location.reload();
   } catch(err) {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Salvar posição';
-    alert('Erro ao salvar posição: ' + err.message);
+    alert('Erro ao salvar: ' + err.message);
   }
 }
 
@@ -523,20 +805,16 @@ async function salvarNovoPai() {
 async function aceitarTodasSugestoes(btn) {
   const posicoes = {};
   FLAT_DATA.forEach(n => {
-    if (!n.manual && n.chave !== '__ROOT__') {
+    if (!n.manual && n.chave !== '__ROOT__')
       posicoes[n.chave] = n.parentId === '__ROOT__' ? '' : (n.parentId || '');
-    }
   });
   if (!Object.keys(posicoes).length) return;
-
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Salvando...';
-
   try {
     const resp = await fetch('/api/organograma/aceitar-sugestoes', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ posicoes }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({posicoes}),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     location.reload();
@@ -559,29 +837,58 @@ window.addEventListener('resize',()=>{ clearTimeout(_rsT); _rsT=setTimeout(ajust
 
 <style>
 /* ── Organograma ─────────────────────────────────────────────────────────── */
-.org-link          { fill:none; stroke:#adb5bd; stroke-width:1.5px; }
+.org-link           { fill:none; stroke:#adb5bd; stroke-width:1.5px; }
 [data-bs-theme="dark"] .org-link { stroke:#495057; }
 
-.org-body-bg       { fill:#fff; }
+/* Linhas de múltiplos gestores */
+.org-link-extra     { fill:none; stroke:#fd7e14; stroke-width:1.8px;
+                      stroke-dasharray:6,3; opacity:.85; }
+
+.org-body-bg        { fill:#fff; }
 [data-bs-theme="dark"] .org-body-bg { fill:#1e2535; }
 
-.org-cargo-txt     { fill:#ffffffdd; font-size:10px; font-weight:500; font-family:inherit; pointer-events:none; }
-.org-nome-txt      { fill:#212529;   font-size:12px; font-weight:700; font-family:inherit; pointer-events:none; }
+.org-cargo-txt      { fill:#ffffffdd; font-size:10px; font-weight:500;
+                      font-family:inherit; pointer-events:none; }
+.org-nome-txt       { fill:#212529;   font-size:12px; font-weight:700;
+                      font-family:inherit; pointer-events:none; }
 [data-bs-theme="dark"] .org-nome-txt { fill:#e0e6f0; }
 
-/* Botão de edição: aparece ao hover no nó */
-.org-edit-btn      { fill:rgba(255,255,255,0) !important; transition:fill .15s; }
+/* Botão de edição: aparece ao hover */
+.org-edit-btn       { fill:rgba(255,255,255,0) !important; transition:fill .15s; }
 .org-ng:hover .org-edit-btn { fill:rgba(255,255,255,.9) !important; }
 
 /* Borda do nó — sombra ao hover */
-.org-ng:hover .org-border { stroke-width:2.5 !important; filter:drop-shadow(0 2px 8px rgba(0,0,0,.25)); }
+.org-ng:hover .org-border { stroke-width:2.5 !important;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.25)); }
+
+/* Cursor de drag no nó */
+.org-ng { cursor: grab !important; }
+.org-ng:active { cursor: grabbing !important; }
 
 .org-dot { transition:fill .2s; }
 
-/* Badge inline para legenda "borda tracejada" */
 .org-badge-sugerido {
-  display:inline-block;padding:1px 8px;border-radius:4px;
-  border:2px dashed #ffc107;font-size:.8em;
+  display:inline-block; padding:1px 8px; border-radius:4px;
+  border:2px dashed #ffc107; font-size:.8em;
+}
+
+/* ── Print / PDF ─────────────────────────────────────────────────────────── */
+@media print {
+  body * { visibility: hidden !important; }
+  #org-print-wrapper,
+  #org-print-wrapper * { visibility: visible !important; }
+  #org-print-wrapper {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100vw !important; height: 100vh !important;
+    z-index: 9999 !important;
+  }
+  #org-container {
+    height: 100vh !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  .card-footer, .card { border: none !important; }
 }
 </style>
 {% endblock %}

@@ -26,7 +26,7 @@ from auth import autenticar_ad
 from comparador import (
     processar_planilha, gerar_excel, carregar_planilha,
     carregar_estrutura_org, salvar_posicao_org, salvar_posicoes_org,
-    gerar_organograma_hibrido,
+    salvar_relacoes_org, gerar_organograma_hibrido,
 )
 
 # ── App ────────────────────────────────────────────────────────────────────
@@ -301,8 +301,8 @@ def organograma(id):
         })
 
     # Carrega posições manuais salvas e gera organograma híbrido
-    posicoes  = carregar_estrutura_org(DATA_DIR)
-    resultado = gerar_organograma_hibrido(colab_list, posicoes)
+    struct    = carregar_estrutura_org(DATA_DIR)
+    resultado = gerar_organograma_hibrido(colab_list, struct["posicoes"], struct["relacoes"])
 
     # Lista completa para o dropdown de seleção de pai no modal
     todos_colab = sorted(
@@ -319,12 +319,13 @@ def organograma(id):
 
     return render_template(
         "organograma.html",
-        arvore       = resultado["nodes"],
-        todos_colab  = todos_colab,
-        n_manual     = resultado["n_manual"],
-        n_sugerido   = resultado["n_sugerido"],
-        meta         = meta,
-        total        = len(colab_list),
+        arvore         = resultado["nodes"],
+        arestas_extras = resultado["arestas_extras"],
+        todos_colab    = todos_colab,
+        n_manual       = resultado["n_manual"],
+        n_sugerido     = resultado["n_sugerido"],
+        meta           = meta,
+        total          = len(colab_list),
     )
 
 
@@ -341,6 +342,22 @@ def api_salvar_posicao_org():
         return {"ok": False, "erro": "chave inválida"}, 400
     try:
         salvar_posicao_org(DATA_DIR, chave, parent_chave, session.get("usuario", ""))
+        return {"ok": True}
+    except Exception as exc:
+        return {"ok": False, "erro": str(exc)}, 500
+
+
+@app.route("/api/organograma/relacoes", methods=["POST"])
+@login_required
+def api_salvar_relacoes_org():
+    """Salva os gestores adicionais (múltiplos) de UM colaborador (AJAX)."""
+    data  = request.get_json(silent=True) or {}
+    filho = data.get("filho", "").strip()
+    pais  = data.get("pais", [])
+    if not filho or filho == "__ROOT__":
+        return {"ok": False, "erro": "filho inválido"}, 400
+    try:
+        salvar_relacoes_org(DATA_DIR, filho, pais, session.get("usuario", ""))
         return {"ok": True}
     except Exception as exc:
         return {"ok": False, "erro": str(exc)}, 500

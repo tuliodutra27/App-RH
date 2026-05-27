@@ -74,7 +74,7 @@ docker --version
 
 ```bash
 cd /opt
-sudo git clone https://github.com/tuliodutra27/App-RH.git
+sudo git clone https://github.com/tuliodutra27/Indicadores-RH.git
 sudo chown -R $USER:$USER /opt/App-RH
 cd /opt/App-RH/web
 ```

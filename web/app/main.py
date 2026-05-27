@@ -23,7 +23,11 @@ from werkzeug.utils import secure_filename
 from io import BytesIO
 
 from auth import autenticar_ad
-from comparador import processar_planilha, gerar_excel, carregar_planilha, gerar_organograma_data
+from comparador import (
+    processar_planilha, gerar_excel, carregar_planilha,
+    carregar_estrutura_org, salvar_posicao_org, salvar_posicoes_org,
+    gerar_organograma_hibrido,
+)
 
 # ── App ────────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -274,37 +278,87 @@ def colaboradores(id):
 @app.route("/organograma/<id>")
 @login_required
 def organograma(id):
-    """Exibe o organograma hierárquico do efetivo a partir de um snapshot."""
+    """Exibe o organograma hierárquico do efetivo com edição manual de posições."""
     snapshots = list(SNAPSHOTS_DIR.glob(f"snapshot_{id}_*.xlsx"))
     if not snapshots:
         flash("Snapshot não encontrado para esta comparação.", "warning")
         return redirect(url_for("dashboard"))
 
-    snapshot = snapshots[0]
-    df = carregar_planilha(snapshot)
-
+    df = carregar_planilha(snapshots[0])
     historico = carregar_historico()
     meta = next((h for h in historico if h["id"] == id), {})
 
+    # Monta lista de colaboradores com a chave do snapshot
     colab_list = []
     for chave, row in df.iterrows():
         tipo = "PJ" if chave.startswith("PJ::") else "CLT"
         colab_list.append({
+            "chave":        chave,
             "tipo":         tipo,
             "nome":         str(row.get("NOME", "")),
             "cargo":        str(row.get("CARGO", "")),
             "departamento": str(row.get("DEPARTAMENTO", "")),
-            "gestor":       str(row.get("GESTOR", "")),
         })
 
-    arvore = gerar_organograma_data(colab_list)
+    # Carrega posições manuais salvas e gera organograma híbrido
+    posicoes  = carregar_estrutura_org(DATA_DIR)
+    resultado = gerar_organograma_hibrido(colab_list, posicoes)
+
+    # Lista completa para o dropdown de seleção de pai no modal
+    todos_colab = sorted(
+        [{"chave": c["chave"], "nome": c["nome"], "cargo": c["cargo"]}
+         for c in colab_list],
+        key=lambda x: x["nome"],
+    )
+    # Adiciona o nó raiz como opção válida de pai
+    todos_colab.insert(0, {
+        "chave": "__ROOT__",
+        "nome":  "ALISEO SA",
+        "cargo": "Conselho de Administração",
+    })
 
     return render_template(
         "organograma.html",
-        arvore=arvore,
-        meta=meta,
-        total=len(colab_list),
+        arvore       = resultado["nodes"],
+        todos_colab  = todos_colab,
+        n_manual     = resultado["n_manual"],
+        n_sugerido   = resultado["n_sugerido"],
+        meta         = meta,
+        total        = len(colab_list),
     )
+
+
+# ── API: edição do organograma ─────────────────────────────────────────────
+
+@app.route("/api/organograma/posicao", methods=["POST"])
+@login_required
+def api_salvar_posicao_org():
+    """Salva a posição hierárquica de UM colaborador (AJAX)."""
+    data = request.get_json(silent=True) or {}
+    chave        = data.get("chave", "").strip()
+    parent_chave = data.get("parentChave", "").strip()
+    if not chave or chave == "__ROOT__":
+        return {"ok": False, "erro": "chave inválida"}, 400
+    try:
+        salvar_posicao_org(DATA_DIR, chave, parent_chave, session.get("usuario", ""))
+        return {"ok": True}
+    except Exception as exc:
+        return {"ok": False, "erro": str(exc)}, 500
+
+
+@app.route("/api/organograma/aceitar-sugestoes", methods=["POST"])
+@login_required
+def api_aceitar_sugestoes_org():
+    """Confirma em lote as posições sugeridas automaticamente (AJAX)."""
+    data     = request.get_json(silent=True) or {}
+    posicoes = data.get("posicoes", {})
+    if not posicoes:
+        return {"ok": False, "erro": "nenhuma posição enviada"}, 400
+    try:
+        salvar_posicoes_org(DATA_DIR, posicoes, session.get("usuario", ""))
+        return {"ok": True}
+    except Exception as exc:
+        return {"ok": False, "erro": str(exc)}, 500
 
 
 @app.route("/historico/<id>/excluir", methods=["POST"])

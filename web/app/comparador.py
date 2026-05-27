@@ -515,74 +515,157 @@ def _score_compatibilidade(pai: dict, filho: dict) -> int:
     return score
 
 
-def gerar_organograma_data(colaboradores: list[dict]) -> list[dict]:
-    """
-    Gera lista plana de nós {id, parentId, name, cargo, departamento, tipo, nivel}
-    para renderização do organograma com d3.stratify().
+# ── Estrutura persistida do organograma ───────────────────────────────────────
 
-    Algoritmo (baseado em análise semântica dos cargos):
-    1. Cada cargo recebe um nível hierárquico por palavras-chave
-       (Superintendente=1, Gerente=3, Coordenador=4, Supervisor=5, etc.).
-    2. Ordena do topo para a base; atribui IDs sequenciais.
-    3. Para cada colaborador, busca o melhor "pai":
-       - Candidatos: todos com nível imediatamente superior (nível numérico menor).
-       - Pontuação: similaridade de departamento + área do cargo.
-       - Escolhe o candidato de maior pontuação.
-    4. Múltiplas raízes → nó virtual 'ALISEO SA' unifica a árvore.
+_ORG_FILE = "organograma_estrutura.json"
+
+
+def carregar_estrutura_org(data_dir: Path) -> dict:
+    """
+    Carrega {chave: parent_chave} das posições manuais salvas.
+    Retorna {} se não houver arquivo ou se houver erro de leitura.
+    """
+    try:
+        path = data_dir / _ORG_FILE
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
+                return json.load(f).get("posicoes", {})
+    except Exception:
+        pass
+    return {}
+
+
+def _gravar_org_json(data_dir: Path, posicoes_novas: dict, usuario: str) -> None:
+    """Merge incremental das posições no arquivo JSON."""
+    path   = data_dir / _ORG_FILE
+    dados: dict = {"versao": 1, "posicoes": {}}
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as f:
+                dados = json.load(f)
+        except Exception:
+            pass
+    dados.setdefault("posicoes", {}).update(posicoes_novas)
+    dados["atualizado_em"]  = datetime.now().isoformat()
+    dados["atualizado_por"] = usuario
+    data_dir.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=2)
+
+
+def salvar_posicao_org(
+    data_dir: Path, chave: str, parent_chave: str, usuario: str = ""
+) -> None:
+    """Salva (ou atualiza) a posição hierárquica de UM colaborador."""
+    _gravar_org_json(data_dir, {chave: parent_chave}, usuario)
+
+
+def salvar_posicoes_org(
+    data_dir: Path, posicoes: dict, usuario: str = ""
+) -> None:
+    """Salva/atualiza posições de MÚLTIPLOS colaboradores de uma vez."""
+    _gravar_org_json(data_dir, posicoes, usuario)
+
+
+def gerar_organograma_hibrido(
+    colaboradores: list[dict],
+    posicoes: dict,
+) -> dict:
+    """
+    Constrói a lista de nós do organograma mesclando:
+      - Posições manuais salvas (posicoes: {chave → parent_chave})
+      - Análise semântica de cargos para colaboradores ainda sem posição
+
+    Cada colaborador deve ter o campo "chave" (chave do snapshot).
+    A raiz virtual "__ROOT__" (ALISEO SA) é sempre inserida no topo.
+
+    Retorna:
+        {
+          "nodes":      list[dict],   # formato para d3.stratify
+          "n_manual":   int,          # nós com posição confirmada pelo usuário
+          "n_sugerido": int,          # nós com posição sugerida automaticamente
+        }
     """
     if not colaboradores:
-        return []
+        return {"nodes": [], "n_manual": 0, "n_sugerido": 0}
 
-    # Enriquece com nível
-    enriched = [
-        {**c, "_nivel": _nivel_cargo(c.get("cargo", ""))}
-        for c in colaboradores
-    ]
+    por_chave       = {c["chave"]: c for c in colaboradores}
+    chaves_com_pos  = set(posicoes) & set(por_chave)
+    chaves_sem_pos  = set(por_chave) - chaves_com_pos
 
-    # Ordena topo → base, depois por nome dentro de cada nível
-    enriched.sort(key=lambda x: (x["_nivel"], _org_normalizar(x.get("nome", ""))))
+    # Nó raiz virtual — sempre presente, nunca editável
+    nodes: list[dict] = [{
+        "id": "__ROOT__", "parentId": "",
+        "name": "ALISEO SA", "cargo": "Conselho de Administração",
+        "departamento": "", "tipo": "", "nivel": -1,
+        "manual": True, "chave": "__ROOT__",
+    }]
 
-    # Atribui IDs após ordenação
-    for i, c in enumerate(enriched):
-        c["_id"] = str(i + 1)
-
-    # Encontra o melhor pai para cada colaborador
-    for c in enriched:
-        nivel = c["_nivel"]
-        superiores = [x for x in enriched if x["_nivel"] < nivel]
-        if not superiores:
-            c["_parent"] = ""
-            continue
-        # Nível mais próximo acima (pode pular níveis se não existir)
-        nivel_alvo = max(x["_nivel"] for x in superiores)
-        candidatos = [x for x in superiores if x["_nivel"] == nivel_alvo]
-        melhor = max(candidatos, key=lambda cand: _score_compatibilidade(cand, c))
-        c["_parent"] = melhor["_id"]
-
-    # Monta lista de nós
-    nodes: list[dict] = [
-        {
-            "id":           c["_id"],
-            "parentId":     c["_parent"],
+    # ── 1. Nós com posição salva manualmente ──────────────────────────────
+    for chave in chaves_com_pos:
+        c      = por_chave[chave]
+        parent = posicoes[chave]
+        # Pai foi desligado ou é vazio → fica direto abaixo do Conselho
+        if parent and parent != "__ROOT__" and parent not in por_chave:
+            parent = "__ROOT__"
+        if not parent:
+            parent = "__ROOT__"
+        nivel = _nivel_cargo(c.get("cargo", ""))
+        nodes.append({
+            "id":           chave,
+            "parentId":     parent,
             "name":         c.get("nome", ""),
             "cargo":        c.get("cargo", ""),
             "departamento": c.get("departamento", ""),
             "tipo":         c.get("tipo", ""),
-            "nivel":        c["_nivel"],
-        }
-        for c in enriched
+            "nivel":        nivel,
+            "manual":       True,
+            "chave":        chave,
+        })
+
+    # ── 2. Nós sem posição: algoritmo semântico ───────────────────────────
+    # Pool de candidatos a pai: nós já posicionados (exceto a raiz virtual)
+    candidatos: list[dict] = [
+        {"id": n["id"], "cargo": n["cargo"],
+         "departamento": n["departamento"], "nivel": n["nivel"]}
+        for n in nodes if n["id"] != "__ROOT__"
     ]
 
-    # Múltiplas raízes → nó virtual unificador
-    raizes = [n for n in nodes if not n["parentId"]]
-    if len(raizes) > 1:
-        nodes.insert(0, {
-            "id": "0", "parentId": "",
-            "name": "ALISEO SA", "cargo": "Conselho de Administração",
-            "departamento": "", "tipo": "", "nivel": -1,
-        })
-        for n in nodes:
-            if n["id"] != "0" and not n["parentId"]:
-                n["parentId"] = "0"
+    sem_pos = sorted(
+        [{**por_chave[ch], "nivel": _nivel_cargo(por_chave[ch].get("cargo", ""))}
+         for ch in chaves_sem_pos],
+        key=lambda x: (x["nivel"], _org_normalizar(x.get("nome", ""))),
+    )
 
-    return nodes
+    for c in sem_pos:
+        nivel    = c["nivel"]
+        superiores = [x for x in candidatos if x["nivel"] < nivel]
+        if superiores:
+            nivel_alvo = max(x["nivel"] for x in superiores)
+            cands  = [x for x in superiores if x["nivel"] == nivel_alvo]
+            melhor = max(cands, key=lambda x: _score_compatibilidade(x, c))
+            parent_chave = melhor["id"]
+        else:
+            parent_chave = "__ROOT__"    # sem superior → direto no Conselho
+
+        nodes.append({
+            "id":           c["chave"],
+            "parentId":     parent_chave,
+            "name":         c.get("nome", ""),
+            "cargo":        c.get("cargo", ""),
+            "departamento": c.get("departamento", ""),
+            "tipo":         c.get("tipo", ""),
+            "nivel":        nivel,
+            "manual":       False,       # sugestão automática, não confirmada
+            "chave":        c["chave"],
+        })
+        # Entra no pool para os próximos colaboradores da mesma rodada
+        candidatos.append({
+            "id": c["chave"], "cargo": c.get("cargo", ""),
+            "departamento": c.get("departamento", ""), "nivel": nivel,
+        })
+
+    n_manual   = sum(1 for n in nodes if n.get("manual")  and n["id"] != "__ROOT__")
+    n_sugerido = sum(1 for n in nodes if not n.get("manual"))
+
+    return {"nodes": nodes, "n_manual": n_manual, "n_sugerido": n_sugerido}

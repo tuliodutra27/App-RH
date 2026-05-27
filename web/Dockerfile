@@ -1,8 +1,8 @@
-# ── Analisador RH — AliseoSA ─────────────────────────────────────────────
+# ── Indicadores RH — AliseoSA ────────────────────────────────────────────
 FROM python:3.12-slim
 
 LABEL maintainer="TI AliseoSA"
-LABEL description="Comparador de planilhas do RH com interface web"
+LABEL description="Indicadores RH — comparação de planilhas com interface web"
 
 # Evita prompts e garante saída de log imediata
 ENV PYTHONDONTWRITEBYTECODE=1 \

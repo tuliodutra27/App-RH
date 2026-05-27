@@ -1,8 +1,8 @@
 services:
-  analisador-rh:
+  indicadores-rh:
     build: .
-    image: analisador-rh:latest
-    container_name: analisador-rh
+    image: indicadores-rh:latest
+    container_name: indicadores-rh
     restart: unless-stopped
 
     ports:

@@ -1,5 +1,5 @@
 """
-Analisador de Cargos — AliseoSA
+Indicadores RH — AliseoSA
 Aplicação web Flask para comparação de planilhas do RH.
 """
 

@@ -101,6 +101,22 @@
             <small class="text-muted d-block ms-4">Nome, cargo, gestor, nível — abre no Excel</small>
           </button>
         </li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">draw.io — edição completa</h6></li>
+        <li>
+          <button class="dropdown-item py-2" onclick="exportarDrawio('visivel')">
+            <i class="bi bi-bounding-box text-info me-2"></i>
+            <strong>draw.io — Como está na tela</strong>
+            <small class="text-muted d-block ms-4">Apenas os níveis expandidos</small>
+          </button>
+        </li>
+        <li>
+          <button class="dropdown-item py-2" onclick="exportarDrawio('completo')">
+            <i class="bi bi-diagram-2 text-info me-2"></i>
+            <strong>draw.io — Todos os níveis</strong>
+            <small class="text-muted d-block ms-4">Expande tudo e exporta</small>
+          </button>
+        </li>
       </ul>
     </div>
   </div>
@@ -1151,6 +1167,162 @@ function exportarCSV() {
   const a    = document.createElement('a');
   a.href = url; a.download = `organograma_${dt}.csv`; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Export draw.io (.drawio XML nativo)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Monta XML draw.io a partir de lista de nós e arestas ─────────────────────
+function buildDrawioXML(nodes, parentEdges, extraEdges) {
+  // Escapa para atributos XML
+  const attr = s => String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // Escapa para HTML embutido no label (draw.io aceita html=1)
+  const esc  = s => String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Offset para coordenadas ≥ 0
+  let x0 = Infinity, y0 = Infinity;
+  nodes.forEach(n => {
+    x0 = Math.min(x0, n.px - NW / 2);
+    y0 = Math.min(y0, n.py - NH / 2);
+  });
+  x0 -= 40; y0 -= 40;
+
+  // Mapa chave → ID numérico (IDs 0 e 1 são reservados pelo draw.io)
+  const idOf = {};
+  nodes.forEach((n, i) => { idOf[n.chave] = `n${i + 2}`; });
+
+  const cells = [];
+
+  // ── Nós ──────────────────────────────────────────────────────────────────
+  nodes.forEach(n => {
+    const x  = Math.round(n.px - NW / 2 - x0);
+    const y  = Math.round(n.py - NH / 2 - y0);
+    const id = idOf[n.chave];
+    // Label HTML: cabeçalho azul (cargo) + nome em branco
+    const label =
+      `&lt;b style="font-size:9px;color:#fff;background:#1e3a5f;` +
+      `display:block;padding:1px 5px;margin:-4px -4px 4px -4px;` +
+      `border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"&gt;` +
+      `${esc(n.cargo)}&lt;/b&gt;` +
+      `&lt;b style="font-size:11px"&gt;${esc(n.name)}&lt;/b&gt;`;
+    // Cor da borda por tipo
+    const corBorda = n.tipo === 'CLT' ? '#0d6efd' : '#0dcaf0';
+    cells.push(
+      `    <mxCell id="${attr(id)}" value="${label}" ` +
+      `style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#ffffff;` +
+      `strokeColor=${attr(corBorda)};strokeWidth=1.8;verticalAlign=middle;` +
+      `align=left;spacingLeft=4;fontSize=11;fontStyle=1;" ` +
+      `vertex="1" parent="1">\n` +
+      `      <mxGeometry x="${x}" y="${y}" width="${NW}" height="${NH}" as="geometry" />\n` +
+      `    </mxCell>`
+    );
+  });
+
+  // ── Arestas hierárquicas ──────────────────────────────────────────────────
+  parentEdges.forEach((e, i) => {
+    const src = idOf[e.source], tgt = idOf[e.target];
+    if (!src || !tgt) return;
+    cells.push(
+      `    <mxCell id="e${i}" edge="1" source="${attr(src)}" target="${attr(tgt)}" parent="1" ` +
+      `style="edgeStyle=orthogonalEdgeStyle;rounded=0;strokeColor=#adb5bd;strokeWidth=1.5;">\n` +
+      `      <mxGeometry relative="1" as="geometry" />\n` +
+      `    </mxCell>`
+    );
+  });
+
+  // ── Arestas adicionais (gestores múltiplos) — tracejadas laranja ──────────
+  extraEdges.forEach((e, i) => {
+    const src = idOf[e.pai], tgt = idOf[e.filho];
+    if (!src || !tgt) return;
+    cells.push(
+      `    <mxCell id="x${i}" edge="1" source="${attr(src)}" target="${attr(tgt)}" parent="1" ` +
+      `style="edgeStyle=orthogonalEdgeStyle;rounded=0;dashed=1;strokeColor=#fd7e14;strokeWidth=1.8;">\n` +
+      `      <mxGeometry relative="1" as="geometry" />\n` +
+      `    </mxCell>`
+    );
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+${cells.join('\n')}
+  </root>
+</mxGraphModel>`;
+}
+
+// ── Exportar draw.io — visível ou completo ────────────────────────────────────
+async function exportarDrawio(modo = 'visivel') {
+  if (!root) { alert('Organograma não carregado.'); return; }
+
+  const colapsados = new Set();
+  root.descendants().forEach(d => { if (d._children) colapsados.add(d._uid); });
+
+  try {
+    if (modo === 'completo') {
+      setPdfLoading('Expandindo todos os níveis…');
+      root.descendants().forEach(d => {
+        if (d._children) { d.children = d._children; d._children = null; }
+      });
+      update(root);
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    setPdfLoading('Gerando draw.io…');
+
+    const nodes = [];
+    const parentEdges = [];
+    const visibleIds = new Set();
+
+    // Percorre apenas nós visíveis (d.children, não d._children)
+    (function traverse(d) {
+      if (d.id === '__ROOT__') {
+        if (d.children) d.children.forEach(traverse);
+        return;
+      }
+      const pos = getPos(d);
+      nodes.push({
+        chave: d.id,
+        name:  d.data.name  || '',
+        cargo: d.data.cargo || '',
+        tipo:  d.data.tipo  || '',
+        px: pos.x,
+        py: pos.y,
+      });
+      visibleIds.add(d.id);
+      if (d.parent && d.parent.id !== '__ROOT__') {
+        parentEdges.push({ source: d.parent.id, target: d.id });
+      }
+      if (d.children) d.children.forEach(traverse);
+    })(root);
+
+    const extras = ARESTAS_EXTRAS.filter(e => visibleIds.has(e.pai) && visibleIds.has(e.filho));
+    const xml    = buildDrawioXML(nodes, parentEdges, extras);
+    const blob   = new Blob([xml], { type: 'application/xml;charset=utf-8' });
+    const url    = URL.createObjectURL(blob);
+    const dt     = new Date().toISOString().slice(0, 10);
+    const sufixo = modo === 'completo' ? '_completo' : '';
+    const a      = document.createElement('a');
+    a.href = url; a.download = `organograma${sufixo}_${dt}.drawio`; a.click();
+    URL.revokeObjectURL(url);
+
+  } catch(err) {
+    console.error(err);
+    alert('Erro ao gerar draw.io: ' + err.message);
+  } finally {
+    setPdfLoading(null);
+    // Restaura colapso original
+    root.descendants().forEach(d => {
+      if (colapsados.has(d._uid) && d.children) {
+        d._children = d.children; d.children = null;
+      }
+    });
+    if (modo === 'completo') update(root);
+  }
 }
 
 // ── Modal de edição ───────────────────────────────────────────────────────────

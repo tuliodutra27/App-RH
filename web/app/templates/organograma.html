@@ -1201,13 +1201,14 @@ function buildDrawioXML(nodes, parentEdges, extraEdges) {
     const x  = Math.round(n.px - NW / 2 - x0);
     const y  = Math.round(n.py - NH / 2 - y0);
     const id = idOf[n.chave];
-    // Label HTML: cabeçalho azul (cargo) + nome em branco
+    // Label HTML: cabeçalho azul (cargo) + nome
+    // IMPORTANTE: styles com aspas SIMPLES — aspas duplas quebrariam value="..."
     const label =
-      `&lt;b style="font-size:9px;color:#fff;background:#1e3a5f;` +
+      `&lt;b style='font-size:9px;color:#fff;background:#1e3a5f;` +
       `display:block;padding:1px 5px;margin:-4px -4px 4px -4px;` +
-      `border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"&gt;` +
+      `border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'&gt;` +
       `${esc(n.cargo)}&lt;/b&gt;` +
-      `&lt;b style="font-size:11px"&gt;${esc(n.name)}&lt;/b&gt;`;
+      `&lt;b style='font-size:11px'&gt;${esc(n.name)}&lt;/b&gt;`;
     // Cor da borda por tipo
     const corBorda = n.tipo === 'CLT' ? '#0d6efd' : '#0dcaf0';
     cells.push(
